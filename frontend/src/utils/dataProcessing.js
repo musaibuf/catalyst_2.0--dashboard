@@ -2,7 +2,8 @@ import Papa from 'papaparse';
 import participantFile from '../data/participants.csv';
 
 // --- CONFIGURATION ---
-// REPLACE THIS WITH YOUR RENDER BACKEND URL AFTER DEPLOYMENT
+// ⚠️ IMPORTANT: Ensure this is your BACKEND Web Service URL from Render
+// It should NOT be the same URL as your Dashboard website.
 const API_URL = "https://catalyst-backend-ggzy.onrender.com"; 
 
 const TIERS = {
@@ -128,7 +129,15 @@ export const getTier = (percentage) => {
   return TIERS.BRONZE;
 };
 
+// Helper to clean CNIC for comparison (removes dashes and spaces)
+const normalizeCNIC = (cnic) => {
+  if (!cnic) return "";
+  return String(cnic).replace(/[^a-zA-Z0-9]/g, '').trim();
+};
+
 export const processData = (callback) => {
+  console.log("1. Starting Data Processing...");
+
   // 1. Read CSV (Demographics)
   Papa.parse(participantFile, {
     download: true,
@@ -136,23 +145,35 @@ export const processData = (callback) => {
     skipEmptyLines: true,
     complete: async (results) => {
       const csvData = results.data;
+      console.log(`2. CSV Loaded: ${csvData.length} participants found.`);
       
       try {
-        // 2. FETCH FROM REAL DATABASE (Render)
-        // Use localhost for development, Render URL for production
-        const fetchUrl = window.location.hostname === 'localhost' 
-          ? 'http://localhost:5000/api/dashboard-data' 
-          : `${API_URL}/api/dashboard-data`;
-
+        // 2. FETCH FROM REAL DATABASE
+        // Force use of Live URL to ensure we aren't looking at empty local DB
+        const fetchUrl = `${API_URL}/api/dashboard-data`;
+        
+        console.log(`3. Fetching from: ${fetchUrl}`);
         const response = await fetch(fetchUrl);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const dbData = await response.json();
+        console.log(`4. DB Data Received: ${dbData.length} assessments found.`);
 
         // 3. Merge Data
         const merged = csvData.map(p => {
-          // Find score record from DB
-          const scoreRecord = dbData.find(s => s.cnic === p.cnic);
+          // Normalize both CNICs to ensure match even if dashes differ
+          const targetCnic = normalizeCNIC(p.cnic);
           
-          if (!scoreRecord) return null; 
+          // Find score record from DB
+          // IMPORTANT: Backend returns 'cnic', not 'participant_cnic'
+          const scoreRecord = dbData.find(s => normalizeCNIC(s.cnic) === targetCnic);
+          
+          if (!scoreRecord) {
+            return null; 
+          }
 
           const rawScores = scoreRecord.scores;
           
@@ -191,8 +212,9 @@ export const processData = (callback) => {
               clusterCounts[comp.cluster]++;
             }
 
-            // --- 5-LEVEL FEEDBACK LOGIC ---
-            let suggestionObj = {};
+            // Feedback Logic
+            let suggestionObj = { title: "N/A", duration: "", areas: "", method: "", rationale: "" };
+            
             if (FEEDBACK_DB[comp.id]) {
                 if (avgScore <= 1.5) suggestionObj = FEEDBACK_DB[comp.id].ex_low;
                 else if (avgScore <= 2.2) suggestionObj = FEEDBACK_DB[comp.id].low;
@@ -204,7 +226,7 @@ export const processData = (callback) => {
             feedbackList.push({
               competency: comp.label,
               score: avgScore.toFixed(1),
-              details: suggestionObj || { title: "N/A" },
+              details: suggestionObj,
               cluster: comp.cluster
             });
           });
@@ -229,12 +251,13 @@ export const processData = (callback) => {
           };
         }).filter(Boolean);
 
+        console.log(`5. Merging Complete. ${merged.length} participants matched and processed.`);
+        
         merged.sort((a, b) => b.calculated.overall - a.calculated.overall);
         callback(merged);
 
       } catch (error) {
-        console.error("Error fetching DB data:", error);
-        // Fallback to empty if DB fails so app doesn't crash
+        console.error("❌ Error fetching DB data:", error);
         callback([]);
       }
     }
