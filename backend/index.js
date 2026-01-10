@@ -6,9 +6,11 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Database Connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
@@ -47,9 +49,10 @@ const initDB = async () => {
 };
 initDB();
 
-app.get('/', (req, res) => res.send('Backend Running'));
+// Test Route
+app.get('/', (req, res) => res.send('Backend is Running!'));
 
-// 1. SEED
+// 1. SEED PARTICIPANTS
 app.post('/api/seed-participants', async (req, res) => {
   const participants = req.body;
   if (!Array.isArray(participants)) return res.status(400).json({ error: "Invalid array" });
@@ -74,21 +77,21 @@ app.post('/api/seed-participants', async (req, res) => {
     res.json({ message: "Seeded successfully" });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error(err);
+    console.error("Seed Error:", err);
     res.status(500).json({ error: "Seeding failed" });
   } finally {
     client.release();
   }
 });
 
-// 2. SUBMIT
+// 2. SUBMIT ASSESSMENT
 app.post('/api/submit-assessment', async (req, res) => {
   const { cnic, scores, assessorName } = req.body;
   try {
-    // Ensure participant exists first (optional safety check)
+    // Safety check: Ensure participant exists
     const check = await pool.query('SELECT * FROM participants WHERE cnic = $1', [cnic]);
     if (check.rows.length === 0) {
-      // Auto-create dummy participant if missing (prevents FK error)
+      // If participant missing, create a placeholder to prevent crash
       await pool.query('INSERT INTO participants (cnic, name) VALUES ($1, $2)', [cnic, 'Unknown']);
     }
 
@@ -96,39 +99,43 @@ app.post('/api/submit-assessment', async (req, res) => {
     await pool.query(query, [cnic, JSON.stringify(scores), assessorName || 'Assessor']);
     res.json({ message: "Saved" });
   } catch (err) {
-    console.error(err);
+    console.error("Submit Error:", err);
     res.status(500).json({ error: "Save failed" });
   }
 });
 
-// 3. DASHBOARD DATA (FIXED QUERY)
+// 3. GET DASHBOARD DATA (FIXED & SIMPLIFIED)
 app.get('/api/dashboard-data', async (req, res) => {
   try {
-    // Simplified Query to avoid DISTINCT ON complexity issues
+    // Simple Left Join - No complex DISTINCT logic in SQL to avoid crashes
     const query = `
       SELECT 
         p.cnic, p.name, p.region, p.dealership, p.age, p.gender, p.degree, p.experience,
         a.scores, a.created_at
       FROM participants p
-      JOIN assessments a ON p.cnic = a.participant_cnic
+      LEFT JOIN assessments a ON p.cnic = a.participant_cnic
       ORDER BY a.created_at DESC
     `;
+    
     const result = await pool.query(query);
     
-    // Filter unique by CNIC in JS (safer than complex SQL for now)
-    const uniqueResults = [];
-    const seen = new Set();
-    for (const row of result.rows) {
-      if (!seen.has(row.cnic)) {
-        seen.add(row.cnic);
-        uniqueResults.push(row);
+    // Filter for unique participants (Latest score only) in JavaScript
+    // This is safer than doing it in SQL
+    const uniqueMap = new Map();
+    
+    result.rows.forEach(row => {
+      // If we haven't seen this CNIC yet, or if this row has scores and the previous didn't
+      if (!uniqueMap.has(row.cnic)) {
+        uniqueMap.set(row.cnic, row);
       }
-    }
+    });
+
+    const uniqueResults = Array.from(uniqueMap.values());
 
     res.json(uniqueResults);
   } catch (err) {
-    console.error("Dashboard Data Error:", err);
-    res.status(500).json({ error: "Fetch failed" });
+    console.error("Dashboard Data Error:", err); // This will show in Render Logs if it fails
+    res.status(500).json({ error: "Fetch failed", details: err.message });
   }
 });
 
