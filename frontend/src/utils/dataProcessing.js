@@ -3,7 +3,7 @@ import participantFile from '../data/participants.csv';
 
 // --- CONFIGURATION ---
 // REPLACE THIS WITH YOUR RENDER BACKEND URL AFTER DEPLOYMENT
-const API_URL = "https://YOUR-BACKEND-APP-NAME.onrender.com"; 
+const API_URL = "https://catalyst-backend-ggzy.onrender.com"; 
 
 const TIERS = {
   DIAMOND: { label: 'Diamond', color: '#b9f2ff', min: 81 },

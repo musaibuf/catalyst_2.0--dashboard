@@ -11,7 +11,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // REPLACE THIS WITH YOUR RENDER BACKEND URL AFTER DEPLOYMENT
-const API_BASE_URL = "https://YOUR-BACKEND-APP-NAME.onrender.com"; 
+const API_BASE_URL = "https://catalyst-backend-ggzy.onrender.com"; 
 
 // --- SCALES ---
 const SCALE_1_4 = {
