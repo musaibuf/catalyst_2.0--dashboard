@@ -150,7 +150,7 @@ export const processData = (callback) => {
         // 3. Merge Data
         const merged = csvData.map(p => {
           // Find score record from DB
-          const scoreRecord = dbData.find(s => s.participant_cnic === p.cnic);
+          const scoreRecord = dbData.find(s => s.cnic === p.cnic);
           
           if (!scoreRecord) return null; 
 
