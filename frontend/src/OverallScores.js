@@ -215,15 +215,28 @@ export default function OverallScores() {
     }]
   });
 
-  const createBig5Donut = () => ({
-    labels: CLUSTERS.ocean.keys.map(k => k.label),
-    datasets: [{
-      data: CLUSTERS.ocean.keys.map(k => stats.averages[k.id]),
-      backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
-      borderColor: '#fff',
-      borderWidth: 2,
-    }]
-  });
+  const createBig5Donut = () => {
+    if (!stats) return { labels: [], datasets: [] };
+
+    // 1. Get the raw average scores
+    const rawValues = CLUSTERS.ocean.keys.map(k => stats.averages[k.id]);
+
+    // 2. Calculate the total sum of all 5 traits
+    const totalSum = rawValues.reduce((a, b) => a + b, 0);
+
+    // 3. Normalize each score to a percentage of the total (so they sum to 100%)
+    const normalizedData = rawValues.map(val => (totalSum > 0 ? (val / totalSum) * 100 : 0));
+
+    return {
+      labels: CLUSTERS.ocean.keys.map(k => k.label),
+      datasets: [{
+        data: normalizedData, // Using the normalized 100% data
+        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+        borderColor: '#fff',
+        borderWidth: 2,
+      }]
+    };
+  };
 
   const commonOptions = {
     responsive: true,
