@@ -10,6 +10,7 @@ export default function DealershipRankings() {
 
   useEffect(() => {
     processData((data) => {
+      // Group by Dealership
       const grouped = {};
       data.forEach(p => {
         const dealer = p.dealership;
@@ -25,15 +26,17 @@ export default function DealershipRankings() {
         grouped[dealer].count += 1;
       });
 
+      // Calculate Averages
       const dealerArray = Object.values(grouped).map(d => {
         const avg = d.totalScore / d.count;
         return {
           ...d,
           average: avg,
-          tier: getTier(avg)
+          tier: getTier(avg) // Tier logic remains based on rounding (as per your rule)
         };
       });
 
+      // Sort Descending
       dealerArray.sort((a, b) => b.average - a.average);
       setDealerships(dealerArray);
     });
@@ -65,9 +68,12 @@ export default function DealershipRankings() {
                   <TableCell sx={{ fontWeight: 'bold' }}>{row.name}</TableCell>
                   <TableCell>{row.city}</TableCell>
                   <TableCell>{row.count}</TableCell>
+                  
+                  {/* UPDATED: Shows 2 decimal places */}
                   <TableCell sx={{ fontWeight: 'bold', color: '#0039a6' }}>
-                    {Math.round(row.average)}%
+                    {row.average.toFixed(2)}%
                   </TableCell>
+                  
                   <TableCell>
                     <Chip 
                       label={row.tier.label} 

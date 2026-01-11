@@ -62,7 +62,7 @@ export default function ParticipantRankings() {
               {rankings.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                    No assessments submitted yet.
+                    Loading Data...
                   </TableCell>
                 </TableRow>
               )}
