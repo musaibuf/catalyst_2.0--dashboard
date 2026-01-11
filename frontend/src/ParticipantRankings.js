@@ -40,9 +40,12 @@ export default function ParticipantRankings() {
                   <TableCell sx={{ fontWeight: 'bold' }}>{row.name}</TableCell>
                   <TableCell>{row.cnic}</TableCell>
                   <TableCell>{row.dealership}</TableCell>
+                  
+                  {/* UPDATED: Shows 2 decimal places (e.g., 59.72%) */}
                   <TableCell sx={{ fontWeight: 'bold', color: '#0039a6' }}>
-                    {Math.round(row.calculated.overall)}%
+                    {row.calculated.overall.toFixed(2)}%
                   </TableCell>
+                  
                   <TableCell>
                     <Chip 
                       label={row.calculated.tier.label} 
@@ -59,7 +62,7 @@ export default function ParticipantRankings() {
               {rankings.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                    Loading Data...
+                    No assessments submitted yet.
                   </TableCell>
                 </TableRow>
               )}
