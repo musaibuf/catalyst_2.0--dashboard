@@ -41,8 +41,8 @@ export default function DemographicsComparison() {
     dealership: 'All',
     gender: 'All',
     education: 'All',
-    // FIXED: Increased max age to 80 to include the 66-year-old participant
-    ageRange: [18, 80], 
+    // FIXED: Min Age 0 to include the participant aged 15
+    ageRange: [0, 80], 
     expRange: [0, 60]   
   });
 
@@ -255,17 +255,16 @@ export default function DemographicsComparison() {
           mb: 4, 
           bgcolor: '#e3f2fd', 
           border: '1px solid #bbdefb',
-          borderRadius: 2,
-          width: '100%'
+          borderRadius: 2
         }}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>
           FILTERS:
         </Typography>
         
-        <Grid container spacing={4} alignItems="center">
-          {/* Row 1: Dropdowns (Wider) */}
-          <Grid item xs={12} md={3}>
+        <Grid container spacing={3} alignItems="center">
+          {/* Row 1: Dropdowns (Wider - 2 per row) */}
+          <Grid item xs={12} md={6}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Region</InputLabel>
               <Select
@@ -278,7 +277,7 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={6}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Dealership</InputLabel>
               <Select
@@ -291,7 +290,8 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          {/* Row 2: Dropdowns */}
+          <Grid item xs={12} md={6}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Gender</InputLabel>
               <Select
@@ -306,7 +306,7 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={6}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Education</InputLabel>
               <Select
@@ -319,7 +319,7 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          {/* Row 2: Sliders (Full width) */}
+          {/* Row 3: Sliders */}
           <Grid item xs={12} md={6}>
             <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>
               Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}
@@ -328,8 +328,8 @@ export default function DemographicsComparison() {
               value={filters.ageRange}
               onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })}
               valueLabelDisplay="auto"
-              min={18}
-              max={80} // Increased Max to cover 66yo
+              min={0} // FIXED: Starts at 0 to include everyone
+              max={80}
               sx={{ color: '#0039a6', mt: 1 }}
             />
           </Grid>
@@ -343,7 +343,7 @@ export default function DemographicsComparison() {
               onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })}
               valueLabelDisplay="auto"
               min={0}
-              max={60} // Increased Max
+              max={60}
               sx={{ color: '#e31e24', mt: 1 }}
             />
           </Grid>
