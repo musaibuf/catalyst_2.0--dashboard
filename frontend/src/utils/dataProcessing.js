@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import participantFile from '../data/participants.csv';
 
 // --- CONFIGURATION ---
+// REPLACE THIS WITH YOUR RENDER BACKEND URL AFTER DEPLOYMENT
 const API_URL = "https://catalyst-backend-ggzy.onrender.com"; 
 
 const TIERS = {
@@ -29,7 +30,7 @@ const COMPETENCIES = [
   { id: 'i_org_skills', label: 'Organization Skills & Team Management', cluster: 'interpersonal' }
 ];
 
-// --- COMPETENCY FEEDBACK DATABASE ---
+// --- 5-LEVEL DETAILED FEEDBACK DATABASE ---
 const FEEDBACK_DB = {
   c_problem_solving: {
     ex_low: { title: "Foundations of Logic", duration: "2 Days", areas: "Defining Problems, Fact vs Opinion", method: "Drills", rationale: "Struggles to identify core issues." },
@@ -196,7 +197,7 @@ export const processData = (callback) => {
           const oceanScores = { O: 0, C: 0, E: 0, A: 0, N: 0 };
 
           Object.keys(rawScores).forEach(key => {
-            const val = parseInt(rawScores[key]);
+            const val = parseFloat(rawScores[key]); // Changed to parseFloat to handle decimals
             if (key.startsWith('ocean_')) {
               const trait = key.split('_')[1].toUpperCase();
               if (oceanScores[trait] !== undefined) oceanScores[trait] = val;

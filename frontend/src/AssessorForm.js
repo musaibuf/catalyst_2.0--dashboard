@@ -21,14 +21,6 @@ const SCALE_1_4 = {
   4: 'Highly Effective'
 };
 
-const SCALE_1_5 = {
-  1: 'Strongly Disagree',
-  2: 'Disagree',
-  3: 'Neutral',
-  4: 'Agree',
-  5: 'Strongly Agree'
-};
-
 // --- ASSESSMENT STRUCTURE ---
 const ASSESSMENT_ACTIVITIES = [
   {
@@ -131,7 +123,7 @@ const ASSESSMENT_ACTIVITIES = [
     type: 'big5', 
     clusters: [
       {
-        name: 'Personality Traits',
+        name: 'Personality Traits (Rate 1-5)',
         competencies: [
           { id: 'ocean_o', name: 'O – Openness (Creativity & Curiosity)' },
           { id: 'ocean_c', name: 'C – Conscientiousness (Organization & Reliability)' },
@@ -179,11 +171,14 @@ export default function AssessorForm() {
   };
 
   const handleScoreChange = (cnic, compId, value) => {
+    // For Big 5, allow decimals. For others, parse int.
+    const parsedValue = compId.startsWith('ocean_') ? parseFloat(value) : parseInt(value);
+    
     setBatchScores(prev => ({
       ...prev,
       [cnic]: {
         ...(prev[cnic] || {}),
-        [compId]: parseInt(value)
+        [compId]: parsedValue
       }
     }));
   };
@@ -215,7 +210,6 @@ export default function AssessorForm() {
       return;
     }
 
-    // Determine URL (Localhost vs Production)
     const submitUrl = window.location.hostname === 'localhost' 
       ? 'http://localhost:5000/api/submit-assessment' 
       : `${API_BASE_URL}/api/submit-assessment`;
@@ -260,6 +254,7 @@ export default function AssessorForm() {
       </AppBar>
 
       <Container maxWidth="lg" sx={{ mt: 4 }}>
+        
         <Paper sx={{ p: 3, mb: 4, borderRadius: 2 }}>
           <Typography variant="h6" gutterBottom color="primary">
             Step 1: Add Participants to Session
@@ -331,53 +326,67 @@ export default function AssessorForm() {
                             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2, textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #eee', pb: 1 }}>
                               {cluster.name}
                             </Typography>
+                            
                             {cluster.competencies.map((comp) => {
-                              const currentScore = (batchScores[participant.cnic] && batchScores[participant.cnic][comp.id]);
-                              const scaleToUse = activity.type === 'big5' ? [1, 2, 3, 4, 5] : [1, 2, 3, 4];
-                              const labelsToUse = activity.type === 'big5' ? SCALE_1_5 : SCALE_1_4;
-
+                              const currentScore = (batchScores[participant.cnic] && batchScores[participant.cnic][comp.id]) || '';
+                              
                               return (
                                 <Box key={comp.id} sx={{ mb: 3, p: 2, bgcolor: '#fff', borderRadius: 2, border: '1px solid #eee' }}>
                                   <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 2 }}>
                                     {comp.name}
                                   </Typography>
-                                  <Grid container spacing={2} justifyContent="center">
-                                    {scaleToUse.map((val) => {
-                                      const isSelected = currentScore === val;
-                                      return (
-                                        <Grid item xs={12} sm={6} md={activity.type === 'big5' ? 2.4 : 3} key={val}>
-                                          <Box
-                                            onClick={() => handleScoreChange(participant.cnic, comp.id, val)}
-                                            sx={{
-                                              border: isSelected ? '2px solid #0039a6' : '1px solid #e0e0e0',
-                                              bgcolor: isSelected ? '#e3f2fd' : 'white',
-                                              borderRadius: 2,
-                                              p: 1.5,
-                                              minHeight: '70px',
-                                              cursor: 'pointer',
-                                              display: 'flex',
-                                              flexDirection: 'column',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                              transition: 'all 0.2s ease',
-                                              boxShadow: isSelected ? '0 2px 8px rgba(0,57,166,0.15)' : 'none',
-                                              '&:hover': { borderColor: '#0039a6', bgcolor: isSelected ? '#e3f2fd' : '#f5f5f5' }
-                                            }}
-                                          >
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                                              <Typography variant="h6" sx={{ fontWeight: 'bold', color: isSelected ? '#0039a6' : '#666', mr: 1 }}>
-                                                {val}
+                                  
+                                  {/* CONDITIONAL RENDERING: Text Input for Big 5, Radio for others */}
+                                  {activity.type === 'big5' ? (
+                                    <TextField
+                                      type="number"
+                                      label="Score (1-5)"
+                                      variant="outlined"
+                                      size="small"
+                                      inputProps={{ min: 1, max: 5, step: 0.1 }}
+                                      value={currentScore}
+                                      onChange={(e) => handleScoreChange(participant.cnic, comp.id, e.target.value)}
+                                      sx={{ width: '150px' }}
+                                    />
+                                  ) : (
+                                    <Grid container spacing={2} justifyContent="center">
+                                      {[1, 2, 3, 4].map((val) => {
+                                        const isSelected = currentScore === val;
+                                        return (
+                                          <Grid item xs={12} sm={6} md={3} key={val}>
+                                            <Box
+                                              onClick={() => handleScoreChange(participant.cnic, comp.id, val)}
+                                              sx={{
+                                                border: isSelected ? '2px solid #0039a6' : '1px solid #e0e0e0',
+                                                bgcolor: isSelected ? '#e3f2fd' : 'white',
+                                                borderRadius: 2,
+                                                p: 1.5,
+                                                minHeight: '70px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: isSelected ? '0 2px 8px rgba(0,57,166,0.15)' : 'none',
+                                                '&:hover': { borderColor: '#0039a6', bgcolor: isSelected ? '#e3f2fd' : '#f5f5f5' }
+                                              }}
+                                            >
+                                              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: isSelected ? '#0039a6' : '#666', mr: 1 }}>
+                                                  {val}
+                                                </Typography>
+                                                {isSelected && <CheckCircleIcon sx={{ color: '#0039a6', fontSize: 18 }} />}
+                                              </Box>
+                                              <Typography variant="caption" align="center" sx={{ lineHeight: 1.1, color: isSelected ? '#0039a6' : '#555' }}>
+                                                {SCALE_1_4[val]}
                                               </Typography>
-                                              {isSelected && <CheckCircleIcon sx={{ color: '#0039a6', fontSize: 18 }} />}
                                             </Box>
-                                            <Typography variant="caption" align="center" sx={{ lineHeight: 1.1, color: isSelected ? '#0039a6' : '#555' }}>
-                                              {labelsToUse[val]}
-                                            </Typography>
-                                          </Box>
-                                        </Grid>
-                                      );
-                                    })}
-                                  </Grid>
+                                          </Grid>
+                                        );
+                                      })}
+                                    </Grid>
+                                  )}
                                 </Box>
                               );
                             })}
