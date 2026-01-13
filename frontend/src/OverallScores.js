@@ -59,7 +59,7 @@ export default function OverallScores() {
   const [rawData, setRawData] = useState([]);
   const [stats, setStats] = useState(null);
   
-  // Updated Filters State
+  // --- FILTERS STATE ---
   const [filters, setFilters] = useState({
     region: 'All',
     dealership: 'All',
@@ -122,9 +122,7 @@ export default function OverallScores() {
     const oceanCounts = { O:0, C:0, E:0, A:0, N:0 };
 
     filtered.forEach(p => {
-      // Scores (These are percentages in rawData, need to convert back to 1-4 for display if needed, 
-      // BUT wait, processData returns percentages. 
-      // To get raw 1-4 average, we can reverse: (pct / 100) * 4
+      // Scores (These are percentages in rawData, convert back to 1-4)
       const scores = p.scores || {};
       Object.keys(sums).forEach(key => {
         if (scores[key] !== undefined) {
@@ -359,21 +357,21 @@ export default function OverallScores() {
       {/* 2. COMPETENCY BREAKDOWN CHARTS */}
       <Grid container spacing={4} sx={{ mb: 6 }}>
         <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3, height: 400 }}>
+          <Paper elevation={3} sx={{ p: 3, height: 450 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>Cognitive Breakdown</Typography>
-            <Box sx={{ height: 320 }}><Bar data={createBarChartData('cognitive')} options={commonOptions} /></Box>
+            <Box sx={{ height: 350 }}><Bar data={createBarChartData('cognitive')} options={commonOptions} /></Box>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3, height: 400 }}>
+          <Paper elevation={3} sx={{ p: 3, height: 450 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24' }}>Self-Leadership Breakdown</Typography>
-            <Box sx={{ height: 320 }}><Bar data={createBarChartData('selfLeadership')} options={commonOptions} /></Box>
+            <Box sx={{ height: 350 }}><Bar data={createBarChartData('selfLeadership')} options={commonOptions} /></Box>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3, height: 400 }}>
+          <Paper elevation={3} sx={{ p: 3, height: 450 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4caf50' }}>Interpersonal Breakdown</Typography>
-            <Box sx={{ height: 320 }}><Bar data={createBarChartData('interpersonal')} options={commonOptions} /></Box>
+            <Box sx={{ height: 350 }}><Bar data={createBarChartData('interpersonal')} options={commonOptions} /></Box>
           </Paper>
         </Grid>
       </Grid>
