@@ -41,8 +41,8 @@ export default function DemographicsComparison() {
     dealership: 'All',
     gender: 'All',
     education: 'All',
-    ageRange: [20, 60], // Default Min/Max Age
-    expRange: [0, 40]   // Default Min/Max Experience
+    ageRange: [20, 60], 
+    expRange: [0, 40]   
   });
 
   // 1. LOAD DATA
@@ -260,7 +260,7 @@ export default function DemographicsComparison() {
         </Typography>
         
         <Grid container spacing={3} alignItems="center">
-          {/* Region */}
+          {/* Row 1: Dropdowns (Wider now) */}
           <Grid item xs={12} md={3}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Region</InputLabel>
@@ -274,7 +274,6 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          {/* Dealership */}
           <Grid item xs={12} md={3}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Dealership</InputLabel>
@@ -288,8 +287,7 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          {/* Gender */}
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} md={3}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Gender</InputLabel>
               <Select
@@ -304,8 +302,7 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          {/* Education */}
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} md={3}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Education</InputLabel>
               <Select
@@ -318,29 +315,32 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          {/* Age Slider */}
-          <Grid item xs={12} md={3}>
-            <Typography variant="caption" gutterBottom>Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}</Typography>
+          {/* Row 2: Sliders (Full width for better usability) */}
+          <Grid item xs={12} md={6}>
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>
+              Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}
+            </Typography>
             <Slider
               value={filters.ageRange}
               onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })}
               valueLabelDisplay="auto"
               min={20}
               max={70}
-              sx={{ color: '#0039a6' }}
+              sx={{ color: '#0039a6', mt: 1 }}
             />
           </Grid>
 
-          {/* Experience Slider */}
-          <Grid item xs={12} md={3}>
-            <Typography variant="caption" gutterBottom>Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}</Typography>
+          <Grid item xs={12} md={6}>
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24' }}>
+              Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}
+            </Typography>
             <Slider
               value={filters.expRange}
               onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })}
               valueLabelDisplay="auto"
               min={0}
               max={40}
-              sx={{ color: '#e31e24' }}
+              sx={{ color: '#e31e24', mt: 1 }}
             />
           </Grid>
         </Grid>
