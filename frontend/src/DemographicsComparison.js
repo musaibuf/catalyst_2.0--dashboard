@@ -41,7 +41,6 @@ export default function DemographicsComparison() {
     dealership: 'All',
     gender: 'All',
     education: 'All',
-    // FIXED: Min Age 0 to include the participant aged 15
     ageRange: [0, 80], 
     expRange: [0, 60]   
   });
@@ -251,53 +250,55 @@ export default function DemographicsComparison() {
       <Paper 
         elevation={0} 
         sx={{ 
-          p: 3, 
+          p: 4, // Increased padding
           mb: 4, 
           bgcolor: '#e3f2fd', 
           border: '1px solid #bbdefb',
           borderRadius: 2
         }}
       >
-        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 3 }}>
           FILTERS:
         </Typography>
         
-        <Grid container spacing={3} alignItems="center">
-          {/* Row 1: Dropdowns (Wider - 2 per row) */}
-          <Grid item xs={12} md={6}>
-            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-              <InputLabel>Region</InputLabel>
+        <Grid container spacing={4} alignItems="center">
+          {/* Row 1: Dropdowns (Standard Size - Taller and Wider) */}
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Region</InputLabel>
               <Select
                 value={filters.region}
                 label="Region"
                 onChange={(e) => setFilters({ ...filters, region: e.target.value })}
+                sx={{ fontSize: '1.1rem', py: 0.5 }}
               >
                 {regions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-              <InputLabel>Dealership</InputLabel>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Dealership</InputLabel>
               <Select
                 value={filters.dealership}
                 label="Dealership"
                 onChange={(e) => setFilters({ ...filters, dealership: e.target.value })}
+                sx={{ fontSize: '1.1rem', py: 0.5 }}
               >
                 {dealerships.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
 
-          {/* Row 2: Dropdowns */}
-          <Grid item xs={12} md={6}>
-            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-              <InputLabel>Gender</InputLabel>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Gender</InputLabel>
               <Select
                 value={filters.gender}
                 label="Gender"
                 onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
+                sx={{ fontSize: '1.1rem', py: 0.5 }}
               >
                 <MenuItem value="All">All</MenuItem>
                 <MenuItem value="Male">Male</MenuItem>
@@ -306,36 +307,42 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-              <InputLabel>Education</InputLabel>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Education</InputLabel>
               <Select
                 value={filters.education}
                 label="Education"
                 onChange={(e) => setFilters({ ...filters, education: e.target.value })}
+                sx={{ fontSize: '1.1rem', py: 0.5 }}
               >
                 {degrees.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
 
-          {/* Row 3: Sliders */}
+          {/* Row 2: Sliders (Bigger and Thicker) */}
           <Grid item xs={12} md={6}>
-            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>
               Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}
             </Typography>
             <Slider
               value={filters.ageRange}
               onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })}
               valueLabelDisplay="auto"
-              min={0} // FIXED: Starts at 0 to include everyone
+              min={0}
               max={80}
-              sx={{ color: '#0039a6', mt: 1 }}
+              sx={{ 
+                color: '#0039a6', 
+                height: 10, // Thicker track
+                '& .MuiSlider-thumb': { width: 24, height: 24 }, // Bigger thumb
+                mt: 1 
+              }}
             />
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24' }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24' }}>
               Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}
             </Typography>
             <Slider
@@ -344,7 +351,12 @@ export default function DemographicsComparison() {
               valueLabelDisplay="auto"
               min={0}
               max={60}
-              sx={{ color: '#e31e24', mt: 1 }}
+              sx={{ 
+                color: '#e31e24', 
+                height: 10, // Thicker track
+                '& .MuiSlider-thumb': { width: 24, height: 24 }, // Bigger thumb
+                mt: 1 
+              }}
             />
           </Grid>
         </Grid>
