@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { processData } from './utils/dataProcessing';
 import {
-  Box, Container, Typography, Paper, Grid, Select, MenuItem, FormControl, InputLabel, Divider
+  Box, Container, Typography, Paper, Grid, Select, MenuItem, FormControl, InputLabel, Divider, Slider
 } from '@mui/material';
 import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, RadialLinearScale, PointElement, LineElement, Filler
 } from 'chart.js';
-import { Bar, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut, Radar } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 ChartJS.register(
-  CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, ChartDataLabels
+  CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, RadialLinearScale, PointElement, LineElement, Filler, ChartDataLabels
 );
 
 const CLUSTERS = {
@@ -58,7 +58,16 @@ const COLORS = ['#0039a6', '#e31e24', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'
 export default function OverallScores() {
   const [rawData, setRawData] = useState([]);
   const [stats, setStats] = useState(null);
-  const [filters, setFilters] = useState({ region: 'All', dealership: 'All' });
+  
+  // --- UPDATED FILTERS STATE ---
+  const [filters, setFilters] = useState({
+    region: 'All',
+    dealership: 'All',
+    gender: 'All',
+    education: 'All',
+    ageRange: [0, 80],
+    expRange: [0, 60]
+  });
 
   useEffect(() => {
     processData((data) => {
@@ -66,16 +75,29 @@ export default function OverallScores() {
     });
   }, []);
 
+  // --- EXTRACT FILTER OPTIONS ---
   const regions = useMemo(() => ['All', ...new Set(rawData.map(d => d.region).filter(Boolean))].sort(), [rawData]);
   const dealerships = useMemo(() => ['All', ...new Set(rawData.map(d => d.dealership).filter(Boolean))].sort(), [rawData]);
+  const degrees = useMemo(() => ['All', ...new Set(rawData.map(d => d.degree?.trim()).filter(Boolean))].sort(), [rawData]);
 
   useEffect(() => {
     if (rawData.length === 0) return;
 
+    // --- UPDATED FILTER LOGIC ---
     const filtered = rawData.filter(row => {
+      const age = parseFloat(row.age) || 0;
+      const exp = parseFloat(row['Years of Experience at Pak Suzuki']) || 0;
+      const gender = row.gender ? row.gender.trim().toLowerCase() : '';
+      const degree = row.degree ? row.degree.trim() : '';
+
       const regionMatch = filters.region === 'All' || row.region === filters.region;
       const dealerMatch = filters.dealership === 'All' || row.dealership === filters.dealership;
-      return regionMatch && dealerMatch;
+      const genderMatch = filters.gender === 'All' || gender === filters.gender.toLowerCase();
+      const eduMatch = filters.education === 'All' || degree === filters.education;
+      const ageMatch = age >= filters.ageRange[0] && age <= filters.ageRange[1];
+      const expMatch = exp >= filters.expRange[0] && exp <= filters.expRange[1];
+
+      return regionMatch && dealerMatch && genderMatch && eduMatch && ageMatch && expMatch;
     });
 
     if (filtered.length === 0) {
@@ -246,20 +268,56 @@ export default function OverallScores() {
     <Container maxWidth="xl" sx={{ pb: 5 }}>
       <Box sx={{ mb: 2 }}><Typography variant="h4" sx={{ fontWeight: 'bold', color: '#0039a6' }}>Overall Scores & Demographics</Typography></Box>
 
-      <Paper elevation={0} sx={{ p: 2, mb: 4, bgcolor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6' }}>FILTERS:</Typography>
-        <FormControl size="small" sx={{ minWidth: 200, bgcolor: 'white' }}>
-          <InputLabel>Region</InputLabel>
-          <Select value={filters.region} label="Region" onChange={(e) => setFilters({...filters, region: e.target.value})}>
-            {regions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 300, bgcolor: 'white' }}>
-          <InputLabel>Dealership</InputLabel>
-          <Select value={filters.dealership} label="Dealership" onChange={(e) => setFilters({...filters, dealership: e.target.value})}>
-            {dealerships.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-          </Select>
-        </FormControl>
+      {/* --- UPDATED FILTERS SECTION --- */}
+      <Paper elevation={0} sx={{ p: 3, mb: 4, bgcolor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 2 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>FILTERS:</Typography>
+        <Grid container spacing={3} alignItems="center">
+          {/* Row 1: Dropdowns (Wider) */}
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Region</InputLabel>
+              <Select value={filters.region} label="Region" onChange={(e) => setFilters({...filters, region: e.target.value})}>
+                {regions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Dealership</InputLabel>
+              <Select value={filters.dealership} label="Dealership" onChange={(e) => setFilters({...filters, dealership: e.target.value})}>
+                {dealerships.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Gender</InputLabel>
+              <Select value={filters.gender} label="Gender" onChange={(e) => setFilters({...filters, gender: e.target.value})}>
+                <MenuItem value="All">All</MenuItem>
+                <MenuItem value="Male">Male</MenuItem>
+                <MenuItem value="Female">Female</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Education</InputLabel>
+              <Select value={filters.education} label="Education" onChange={(e) => setFilters({...filters, education: e.target.value})}>
+                {degrees.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Row 2: Sliders */}
+          <Grid item xs={12} md={6}>
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}</Typography>
+            <Slider value={filters.ageRange} onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })} valueLabelDisplay="auto" min={0} max={80} sx={{ color: '#0039a6', mt: 1 }} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24' }}>Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}</Typography>
+            <Slider value={filters.expRange} onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })} valueLabelDisplay="auto" min={0} max={60} sx={{ color: '#e31e24', mt: 1 }} />
+          </Grid>
+        </Grid>
       </Paper>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
