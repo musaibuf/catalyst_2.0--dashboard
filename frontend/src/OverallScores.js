@@ -271,26 +271,26 @@ export default function OverallScores() {
       {/* --- UPDATED FILTERS SECTION --- */}
       <Paper elevation={0} sx={{ p: 3, mb: 4, bgcolor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>FILTERS:</Typography>
-        <Grid container spacing={3} alignItems="center">
+        <Grid container spacing={2} alignItems="center">
           {/* Row 1: Dropdowns (Wider) */}
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+          <Grid item xs={12} sm={6} md={3}>
+                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
               <InputLabel>Region</InputLabel>
               <Select value={filters.region} label="Region" onChange={(e) => setFilters({...filters, region: e.target.value})}>
                 {regions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+          <Grid item xs={12} sm={6} md={3}>
+                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
               <InputLabel>Dealership</InputLabel>
               <Select value={filters.dealership} label="Dealership" onChange={(e) => setFilters({...filters, dealership: e.target.value})}>
                 {dealerships.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+          <Grid item xs={12} sm={6} md={3}>
+                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
               <InputLabel>Gender</InputLabel>
               <Select value={filters.gender} label="Gender" onChange={(e) => setFilters({...filters, gender: e.target.value})}>
                 <MenuItem value="All">All</MenuItem>
@@ -299,8 +299,8 @@ export default function OverallScores() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+          <Grid item xs={12} sm={6} md={3}>
+                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
               <InputLabel>Education</InputLabel>
               <Select value={filters.education} label="Education" onChange={(e) => setFilters({...filters, education: e.target.value})}>
                 {degrees.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
