@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Papa from 'papaparse';
 import participantFile from './data/participants.csv';
 import {
-  Box, Container, Typography, Paper, Grid, Select, MenuItem, FormControl, InputLabel
+  Box, Container, Typography, Paper, Grid, Select, MenuItem, FormControl, InputLabel, Slider
 } from '@mui/material';
 import {
   Chart as ChartJS,
@@ -15,7 +15,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import ChartDataLabels from 'chartjs-plugin-datalabels'; // 1. Import Plugin
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 // --- REGISTER CHART.JS COMPONENTS ---
 ChartJS.register(
@@ -26,7 +26,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ChartDataLabels // 2. Register Plugin
+  ChartDataLabels
 );
 
 // --- COLORS --- 
@@ -34,7 +34,16 @@ const COLORS = ['#0039a6', '#e31e24', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'
 
 export default function DemographicsComparison() {
   const [data, setData] = useState([]);
-  const [filters, setFilters] = useState({ region: 'All', dealership: 'All' });
+  
+  // --- FILTERS STATE ---
+  const [filters, setFilters] = useState({
+    region: 'All',
+    dealership: 'All',
+    gender: 'All',
+    education: 'All',
+    ageRange: [20, 60], // Default Min/Max Age
+    expRange: [0, 40]   // Default Min/Max Experience
+  });
 
   // 1. LOAD DATA
   useEffect(() => {
@@ -49,13 +58,24 @@ export default function DemographicsComparison() {
   // 2. EXTRACT FILTER OPTIONS
   const regions = useMemo(() => ['All', ...new Set(data.map(d => d.region).filter(Boolean))].sort(), [data]);
   const dealerships = useMemo(() => ['All', ...new Set(data.map(d => d.dealership).filter(Boolean))].sort(), [data]);
+  const degrees = useMemo(() => ['All', ...new Set(data.map(d => d.degree?.trim()).filter(Boolean))].sort(), [data]);
 
   // 3. PROCESS DATA FOR CHARTS
   const chartData = useMemo(() => {
     const filtered = data.filter(row => {
+      const age = parseFloat(row.age) || 0;
+      const exp = parseFloat(row['Years of Experience at Pak Suzuki']) || 0;
+      const gender = row.gender ? row.gender.trim().toLowerCase() : '';
+      const degree = row.degree ? row.degree.trim() : '';
+
       const regionMatch = filters.region === 'All' || row.region === filters.region;
       const dealerMatch = filters.dealership === 'All' || row.dealership === filters.dealership;
-      return regionMatch && dealerMatch;
+      const genderMatch = filters.gender === 'All' || gender === filters.gender.toLowerCase();
+      const eduMatch = filters.education === 'All' || degree === filters.education;
+      const ageMatch = age >= filters.ageRange[0] && age <= filters.ageRange[1];
+      const expMatch = exp >= filters.expRange[0] && exp <= filters.expRange[1];
+
+      return regionMatch && dealerMatch && genderMatch && eduMatch && ageMatch && expMatch;
     });
 
     // A. Education Breakdown (Donut)
@@ -133,7 +153,6 @@ export default function DemographicsComparison() {
 
   // --- CHART CONFIGURATIONS ---
 
-  // 1. Education Donut Data
   const educationChartData = {
     labels: Object.keys(chartData.eduCounts),
     datasets: [{
@@ -144,7 +163,6 @@ export default function DemographicsComparison() {
     }],
   };
 
-  // 2. Experience Horizontal Bar Data
   const experienceChartData = {
     labels: Object.keys(chartData.expBuckets),
     datasets: [{
@@ -154,7 +172,6 @@ export default function DemographicsComparison() {
     }],
   };
 
-  // 3. Region Vertical Bar Data
   const regionChartData = {
     labels: chartData.sortedRegions,
     datasets: [{
@@ -164,7 +181,6 @@ export default function DemographicsComparison() {
     }],
   };
 
-  // 4. Stacked Bar Data
   const stackedChartData = {
     labels: chartData.sortedRegions,
     datasets: chartData.degreeKeys.map((degree, index) => ({
@@ -174,7 +190,6 @@ export default function DemographicsComparison() {
     })),
   };
 
-  // 5. Age Bar Data
   const ageChartData = {
     labels: Object.keys(chartData.ageBuckets),
     datasets: [{
@@ -184,7 +199,6 @@ export default function DemographicsComparison() {
     }],
   };
 
-  // 6. Gender Donut Data
   const genderChartData = {
     labels: ['Male', 'Female'],
     datasets: [{
@@ -196,18 +210,15 @@ export default function DemographicsComparison() {
   };
 
   // --- OPTIONS ---
-
-  // Common Options (Disable datalabels for bars to keep them clean, unless you want them there too)
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { position: 'bottom' },
-      datalabels: { display: false } // Hide labels on bars by default
+      datalabels: { display: false }
     },
   };
 
-  // Specific Options for Donuts (Enable Data Labels)
   const donutOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -215,12 +226,10 @@ export default function DemographicsComparison() {
     plugins: {
       legend: { position: 'bottom' },
       datalabels: {
-        display: true, // Show labels
-        color: '#fff', // White text
+        display: true,
+        color: '#fff',
         font: { weight: 'bold', size: 14 },
-        formatter: (value) => {
-          return value > 0 ? value : ''; // Only show if value > 0
-        }
+        formatter: (value) => value > 0 ? value : ''
       }
     },
   };
@@ -235,46 +244,106 @@ export default function DemographicsComparison() {
         </Typography>
       </Box>
 
-      {/* 2. FILTER STRIP */}
+      {/* 2. ADVANCED FILTER STRIP */}
       <Paper 
         elevation={0} 
         sx={{ 
-          p: 2, 
+          p: 3, 
           mb: 4, 
           bgcolor: '#e3f2fd', 
           border: '1px solid #bbdefb',
-          borderRadius: 2,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 3,
-          flexWrap: 'wrap'
+          borderRadius: 2
         }}
       >
-        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>
           FILTERS:
         </Typography>
         
-        <FormControl size="small" sx={{ minWidth: 200, bgcolor: 'white', borderRadius: 1 }}>
-          <InputLabel>Region</InputLabel>
-          <Select
-            value={filters.region}
-            label="Region"
-            onChange={(e) => setFilters({ ...filters, region: e.target.value })}
-          >
-            {regions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-          </Select>
-        </FormControl>
+        <Grid container spacing={3} alignItems="center">
+          {/* Region */}
+          <Grid item xs={12} md={3}>
+            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Region</InputLabel>
+              <Select
+                value={filters.region}
+                label="Region"
+                onChange={(e) => setFilters({ ...filters, region: e.target.value })}
+              >
+                {regions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
 
-        <FormControl size="small" sx={{ minWidth: 300, bgcolor: 'white', borderRadius: 1 }}>
-          <InputLabel>Dealership</InputLabel>
-          <Select
-            value={filters.dealership}
-            label="Dealership"
-            onChange={(e) => setFilters({ ...filters, dealership: e.target.value })}
-          >
-            {dealerships.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-          </Select>
-        </FormControl>
+          {/* Dealership */}
+          <Grid item xs={12} md={3}>
+            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Dealership</InputLabel>
+              <Select
+                value={filters.dealership}
+                label="Dealership"
+                onChange={(e) => setFilters({ ...filters, dealership: e.target.value })}
+              >
+                {dealerships.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Gender */}
+          <Grid item xs={12} md={2}>
+            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Gender</InputLabel>
+              <Select
+                value={filters.gender}
+                label="Gender"
+                onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
+              >
+                <MenuItem value="All">All</MenuItem>
+                <MenuItem value="Male">Male</MenuItem>
+                <MenuItem value="Female">Female</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Education */}
+          <Grid item xs={12} md={2}>
+            <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+              <InputLabel>Education</InputLabel>
+              <Select
+                value={filters.education}
+                label="Education"
+                onChange={(e) => setFilters({ ...filters, education: e.target.value })}
+              >
+                {degrees.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Age Slider */}
+          <Grid item xs={12} md={3}>
+            <Typography variant="caption" gutterBottom>Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}</Typography>
+            <Slider
+              value={filters.ageRange}
+              onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })}
+              valueLabelDisplay="auto"
+              min={20}
+              max={70}
+              sx={{ color: '#0039a6' }}
+            />
+          </Grid>
+
+          {/* Experience Slider */}
+          <Grid item xs={12} md={3}>
+            <Typography variant="caption" gutterBottom>Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}</Typography>
+            <Slider
+              value={filters.expRange}
+              onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })}
+              valueLabelDisplay="auto"
+              min={0}
+              max={40}
+              sx={{ color: '#e31e24' }}
+            />
+          </Grid>
+        </Grid>
       </Paper>
 
       {/* 3. TOTAL PARTICIPANTS */}
