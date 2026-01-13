@@ -41,8 +41,9 @@ export default function DemographicsComparison() {
     dealership: 'All',
     gender: 'All',
     education: 'All',
-    ageRange: [20, 60], 
-    expRange: [0, 40]   
+    // FIXED: Increased max age to 80 to include the 66-year-old participant
+    ageRange: [18, 80], 
+    expRange: [0, 60]   
   });
 
   // 1. LOAD DATA
@@ -72,6 +73,8 @@ export default function DemographicsComparison() {
       const dealerMatch = filters.dealership === 'All' || row.dealership === filters.dealership;
       const genderMatch = filters.gender === 'All' || gender === filters.gender.toLowerCase();
       const eduMatch = filters.education === 'All' || degree === filters.education;
+      
+      // Range Checks
       const ageMatch = age >= filters.ageRange[0] && age <= filters.ageRange[1];
       const expMatch = exp >= filters.expRange[0] && exp <= filters.expRange[1];
 
@@ -252,15 +255,16 @@ export default function DemographicsComparison() {
           mb: 4, 
           bgcolor: '#e3f2fd', 
           border: '1px solid #bbdefb',
-          borderRadius: 2
+          borderRadius: 2,
+          width: '100%'
         }}
       >
         <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>
           FILTERS:
         </Typography>
         
-        <Grid container spacing={3} alignItems="center">
-          {/* Row 1: Dropdowns (Wider now) */}
+        <Grid container spacing={4} alignItems="center">
+          {/* Row 1: Dropdowns (Wider) */}
           <Grid item xs={12} md={3}>
             <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
               <InputLabel>Region</InputLabel>
@@ -315,7 +319,7 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          {/* Row 2: Sliders (Full width for better usability) */}
+          {/* Row 2: Sliders (Full width) */}
           <Grid item xs={12} md={6}>
             <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>
               Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}
@@ -324,8 +328,8 @@ export default function DemographicsComparison() {
               value={filters.ageRange}
               onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })}
               valueLabelDisplay="auto"
-              min={20}
-              max={70}
+              min={18}
+              max={80} // Increased Max to cover 66yo
               sx={{ color: '#0039a6', mt: 1 }}
             />
           </Grid>
@@ -339,7 +343,7 @@ export default function DemographicsComparison() {
               onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })}
               valueLabelDisplay="auto"
               min={0}
-              max={40}
+              max={60} // Increased Max
               sx={{ color: '#e31e24', mt: 1 }}
             />
           </Grid>
