@@ -74,7 +74,7 @@ export default function ParticipantBreakdown() {
     setCurrentData(participants.find(p => p.cnic === cnic));
   };
 
-  if (!currentData) return <Container><Typography sx={{mt:4}}>No data available yet.</Typography></Container>;
+  if (!currentData) return <Container><Typography sx={{mt:4}}>Loading Data...</Typography></Container>;
 
   const commonOptions = {
     responsive: true,
