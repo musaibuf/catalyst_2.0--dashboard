@@ -2,8 +2,7 @@ import Papa from 'papaparse';
 import participantFile from '../data/participants.csv';
 
 // --- CONFIGURATION ---
-// ⚠️ IMPORTANT: Ensure this is your BACKEND Web Service URL from Render
-// It should NOT be the same URL as your Dashboard website.
+// ⚠️ REPLACE THIS WITH YOUR RENDER BACKEND URL
 const API_URL = "https://catalyst-backend-ggzy.onrender.com"; 
 
 const TIERS = {
@@ -136,8 +135,6 @@ const normalizeCNIC = (cnic) => {
 };
 
 export const processData = (callback) => {
-  console.log("1. Starting Data Processing...");
-
   // 1. Read CSV (Demographics)
   Papa.parse(participantFile, {
     download: true,
@@ -145,14 +142,10 @@ export const processData = (callback) => {
     skipEmptyLines: true,
     complete: async (results) => {
       const csvData = results.data;
-      console.log(`2. CSV Loaded: ${csvData.length} participants found.`);
       
       try {
         // 2. FETCH FROM REAL DATABASE
-        // Force use of Live URL to ensure we aren't looking at empty local DB
         const fetchUrl = `${API_URL}/api/dashboard-data`;
-        
-        console.log(`3. Fetching from: ${fetchUrl}`);
         const response = await fetch(fetchUrl);
         
         if (!response.ok) {
@@ -160,20 +153,15 @@ export const processData = (callback) => {
         }
 
         const dbData = await response.json();
-        console.log(`4. DB Data Received: ${dbData.length} assessments found.`);
 
         // 3. Merge Data
         const merged = csvData.map(p => {
-          // Normalize both CNICs to ensure match even if dashes differ
           const targetCnic = normalizeCNIC(p.cnic);
           
-          // Find score record from DB
-          // IMPORTANT: Backend returns 'cnic', not 'participant_cnic'
+          // FIXED: Use 's.cnic' to match backend response
           const scoreRecord = dbData.find(s => normalizeCNIC(s.cnic) === targetCnic);
           
-          if (!scoreRecord) {
-            return null; 
-          }
+          if (!scoreRecord) return null; 
 
           const rawScores = scoreRecord.scores;
           
@@ -204,6 +192,8 @@ export const processData = (callback) => {
           COMPETENCIES.forEach(comp => {
             const agg = compAggregates[comp.id];
             const avgScore = agg.count > 0 ? agg.sum / agg.count : 0;
+            
+            // Convert to Percentage (1-4 scale)
             const pct = (avgScore / 4) * 100;
             finalScores[comp.id] = pct;
 
@@ -212,9 +202,8 @@ export const processData = (callback) => {
               clusterCounts[comp.cluster]++;
             }
 
-            // Feedback Logic
+            // --- 5-LEVEL FEEDBACK LOGIC ---
             let suggestionObj = { title: "N/A", duration: "", areas: "", method: "", rationale: "" };
-            
             if (FEEDBACK_DB[comp.id]) {
                 if (avgScore <= 1.5) suggestionObj = FEEDBACK_DB[comp.id].ex_low;
                 else if (avgScore <= 2.2) suggestionObj = FEEDBACK_DB[comp.id].low;
@@ -238,21 +227,19 @@ export const processData = (callback) => {
 
           return {
             ...p,
-            scores: finalScores,
+            scores: finalScores, // Percentages for graphs
             calculated: {
               cognitive: cogPct,
               selfLeadership: slPct,
               interpersonal: ipPct,
               overall: overallPct,
-              ocean: oceanScores,
+              ocean: oceanScores, // Raw 1-5 scores
               tier: getTier(overallPct),
               feedback: feedbackList
             }
           };
         }).filter(Boolean);
 
-        console.log(`5. Merging Complete. ${merged.length} participants matched and processed.`);
-        
         merged.sort((a, b) => b.calculated.overall - a.calculated.overall);
         callback(merged);
 

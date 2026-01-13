@@ -9,12 +9,10 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-// Register ChartJS components
 ChartJS.register(
   CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, ChartDataLabels
 );
 
-// --- CONFIGURATION (Updated with Complete Names) ---
 const CLUSTERS = {
   cognitive: {
     label: "Cognitive Skills", color: "#0039a6",
@@ -22,8 +20,8 @@ const CLUSTERS = {
       { id: 'c_problem_solving', label: 'Problem Solving' },
       { id: 'c_asking_questions', label: 'Asking the Right Questions' },
       { id: 'c_listening', label: 'Listening Skills' },
-      { id: 'c_decision_making', label: 'Decision-Making Skills' },
-      { id: 'c_strategic_sales', label: 'Strategic Sales & Marketing Approach' },
+      { id: 'c_decision_making', label: 'Decision Making' },
+      { id: 'c_strategic_sales', label: 'Strategic Sales' },
       { id: 'c_social_media', label: 'Social Media' }
     ]
   },
@@ -62,18 +60,15 @@ export default function OverallScores() {
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({ region: 'All', dealership: 'All' });
 
-  // 1. Load Data
   useEffect(() => {
     processData((data) => {
       setRawData(data);
     });
   }, []);
 
-  // 2. Extract Filters
   const regions = useMemo(() => ['All', ...new Set(rawData.map(d => d.region).filter(Boolean))].sort(), [rawData]);
   const dealerships = useMemo(() => ['All', ...new Set(rawData.map(d => d.dealership).filter(Boolean))].sort(), [rawData]);
 
-  // 3. Calculate Aggregates
   useEffect(() => {
     if (rawData.length === 0) return;
 
@@ -88,16 +83,13 @@ export default function OverallScores() {
       return;
     }
 
-    // --- COMPETENCY AGGREGATION ---
     const sums = {};
     const counts = {};
     
-    // Init keys
     Object.values(CLUSTERS).forEach(group => {
       group.keys.forEach(k => { sums[k.id] = 0; counts[k.id] = 0; });
     });
 
-    // --- DEMOGRAPHICS AGGREGATION ---
     const demo = {
       gender: { Male: 0, Female: 0 },
       age: { 'Under 30': 0, '30-39': 0, '40-49': 0, '50+': 0 },
@@ -105,7 +97,6 @@ export default function OverallScores() {
     };
 
     filtered.forEach(p => {
-      // Scores (These are already percentages from processData)
       const scores = p.scores || {};
       Object.keys(sums).forEach(key => {
         if (scores[key] !== undefined) {
@@ -114,12 +105,10 @@ export default function OverallScores() {
         }
       });
 
-      // Gender
       const g = p.gender ? p.gender.trim().toLowerCase() : '';
       if (g === 'male') demo.gender.Male++;
       else if (g === 'female') demo.gender.Female++;
 
-      // Age
       const age = parseFloat(p.age);
       if (!isNaN(age)) {
         if (age < 30) demo.age['Under 30']++;
@@ -128,12 +117,10 @@ export default function OverallScores() {
         else demo.age['50+']++;
       }
 
-      // Education
       const deg = p.degree ? p.degree.trim() : 'Unknown';
       demo.education[deg] = (demo.education[deg] || 0) + 1;
     });
 
-    // Calculate Averages
     const averages = {};
     
     // Competencies
@@ -141,7 +128,7 @@ export default function OverallScores() {
       let clusterSum = 0;
       let clusterItems = 0;
       CLUSTERS[clusterKey].keys.forEach(k => {
-        // FIX: sums[k.id] is already a sum of percentages. Just divide by count.
+        // FIX: sums[k.id] is sum of percentages. Divide by count to get avg %.
         const avgPct = counts[k.id] > 0 ? sums[k.id] / counts[k.id] : 0;
         averages[k.id] = avgPct;
         
@@ -153,13 +140,7 @@ export default function OverallScores() {
       averages[`${clusterKey}_overall`] = clusterItems > 0 ? clusterSum / clusterItems : 0;
     });
 
-    // Big 5 (1-5 Scale - needs conversion if not already converted in processData)
-    // Note: processData usually returns raw 1-5 for Big 5. Let's check.
-    // Assuming processData returns raw 1-5 for Big 5 in `p.calculated.ocean`
-    let oceanSum = 0;
-    let oceanCount = 0;
-    
-    // Re-calculate Big 5 averages from scratch using calculated object
+    // Big 5 (Re-calculate from raw 1-5 scores in calculated object)
     const oceanSums = { O:0, C:0, E:0, A:0, N:0 };
     const oceanCounts = { O:0, C:0, E:0, A:0, N:0 };
 
@@ -173,29 +154,23 @@ export default function OverallScores() {
         });
     });
 
-    // Convert Big 5 (1-5) to Percentage
     CLUSTERS.ocean.keys.forEach(k => {
-        const keyChar = k.id.split('_')[1].toUpperCase(); // 'ocean_o' -> 'O'
+        const keyChar = k.id.split('_')[1].toUpperCase();
         const rawAvg = oceanCounts[keyChar] > 0 ? oceanSums[keyChar] / oceanCounts[keyChar] : 0;
-        const pct = (rawAvg / 5) * 100;
-        averages[k.id] = pct;
-        if(pct > 0) { oceanSum += pct; oceanCount++; }
+        averages[k.id] = rawAvg; // Store raw 1-5 avg for normalization later
     });
-    averages.ocean_overall = oceanCount > 0 ? oceanSum / oceanCount : 0;
 
-    // Grand Overall
     averages.grand_overall = (averages.cognitive_overall + averages.selfLeadership_overall + averages.interpersonal_overall) / 3;
 
     setStats({ averages, demo, count: filtered.length });
 
   }, [rawData, filters]);
 
-  // --- CHART DATA HELPERS ---
   const createBarChartData = (clusterKey) => {
     if (!stats) return { labels: [], datasets: [] };
     const cluster = CLUSTERS[clusterKey];
     return {
-      labels: cluster.keys.map(k => k.label), // Use the full label
+      labels: cluster.keys.map(k => k.label),
       datasets: [{
         label: 'Score %',
         data: cluster.keys.map(k => stats.averages[k.id]),
@@ -215,22 +190,17 @@ export default function OverallScores() {
     }]
   });
 
+  // FIX: Normalize Big 5 to 100%
   const createBig5Donut = () => {
     if (!stats) return { labels: [], datasets: [] };
-
-    // 1. Get the raw average scores
     const rawValues = CLUSTERS.ocean.keys.map(k => stats.averages[k.id]);
-
-    // 2. Calculate the total sum of all 5 traits
     const totalSum = rawValues.reduce((a, b) => a + b, 0);
-
-    // 3. Normalize each score to a percentage of the total (so they sum to 100%)
     const normalizedData = rawValues.map(val => (totalSum > 0 ? (val / totalSum) * 100 : 0));
 
     return {
       labels: CLUSTERS.ocean.keys.map(k => k.label),
       datasets: [{
-        data: normalizedData, // Using the normalized 100% data
+        data: normalizedData,
         backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
         borderColor: '#fff',
         borderWidth: 2,
@@ -255,12 +225,7 @@ export default function OverallScores() {
       y: { max: 100, beginAtZero: true, grid: { color: '#f0f0f0' } },
       x: { 
         grid: { display: false },
-        ticks: { 
-          autoSkip: false, 
-          maxRotation: 45, 
-          minRotation: 45,
-          font: { size: 10 } // Smaller font for long labels
-        } 
+        ticks: { autoSkip: false, maxRotation: 45, minRotation: 45, font: { size: 10 } } 
       }
     }
   };
@@ -271,7 +236,7 @@ export default function OverallScores() {
     cutout: '60%',
     plugins: {
       legend: { position: 'bottom' },
-      datalabels: { color: '#fff', font: { weight: 'bold' }, formatter: (val) => val > 0 ? val : '' }
+      datalabels: { color: '#fff', font: { weight: 'bold' }, formatter: (val) => val > 0 ? Math.round(val) + '%' : '' }
     }
   };
 
@@ -279,15 +244,8 @@ export default function OverallScores() {
 
   return (
     <Container maxWidth="xl" sx={{ pb: 5 }}>
-      
-      {/* HEADER */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#0039a6' }}>
-          Overall Scores & Demographics
-        </Typography>
-      </Box>
+      <Box sx={{ mb: 2 }}><Typography variant="h4" sx={{ fontWeight: 'bold', color: '#0039a6' }}>Overall Scores & Demographics</Typography></Box>
 
-      {/* FILTERS */}
       <Paper elevation={0} sx={{ p: 2, mb: 4, bgcolor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6' }}>FILTERS:</Typography>
         <FormControl size="small" sx={{ minWidth: 200, bgcolor: 'white' }}>
@@ -304,7 +262,6 @@ export default function OverallScores() {
         </FormControl>
       </Paper>
 
-      {/* 1. SCORE CARDS */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={2.4}>
           <Paper elevation={3} sx={{ p: 3, bgcolor: '#fff', borderLeft: '6px solid #333', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -338,10 +295,9 @@ export default function OverallScores() {
         </Grid>
       </Grid>
 
-      {/* 2. COMPETENCY BREAKDOWN CHARTS */}
       <Grid container spacing={4} sx={{ mb: 6 }}>
         <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3, height: 450 }}> {/* Increased height for labels */}
+          <Paper elevation={3} sx={{ p: 3, height: 450 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>Cognitive Breakdown</Typography>
             <Box sx={{ height: 350 }}><Bar data={createBarChartData('cognitive')} options={commonOptions} /></Box>
           </Paper>
@@ -362,58 +318,35 @@ export default function OverallScores() {
 
       <Divider sx={{ mb: 6 }} />
 
-      {/* 3. BIG 5 & DEMOGRAPHICS */}
       <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#333', mb: 3 }}>
         Demographics & Personality Profile
       </Typography>
 
       <Grid container spacing={4}>
-        {/* Big 5 Donut */}
         <Grid item xs={12} md={3}>
           <Paper elevation={3} sx={{ p: 3, height: 400 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', textAlign: 'center' }}>Big 5 Personality (Avg)</Typography>
             <Box sx={{ height: 320, position: 'relative' }}>
-              <Doughnut 
-                data={createBig5Donut()} 
-                options={{
-                  ...donutOptions,
-                  plugins: {
-                    ...donutOptions.plugins,
-                    datalabels: { color: '#fff', formatter: (val) => Math.round(val) + '%' }
-                  }
-                }} 
-              />
+              <Doughnut data={createBig5Donut()} options={donutOptions} />
             </Box>
           </Paper>
         </Grid>
-
-        {/* Gender Donut */}
         <Grid item xs={12} md={3}>
           <Paper elevation={3} sx={{ p: 3, height: 400 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', textAlign: 'center' }}>Gender Distribution</Typography>
             <Box sx={{ height: 320, position: 'relative' }}>
-              <Doughnut 
-                data={createDonutData(stats.demo.gender, ['#0039a6', '#e91e63'])} 
-                options={donutOptions} 
-              />
+              <Doughnut data={createDonutData(stats.demo.gender, ['#0039a6', '#e91e63'])} options={donutOptions} />
             </Box>
           </Paper>
         </Grid>
-
-        {/* Education Donut */}
         <Grid item xs={12} md={3}>
           <Paper elevation={3} sx={{ p: 3, height: 400 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', textAlign: 'center' }}>Education Breakdown</Typography>
             <Box sx={{ height: 320, position: 'relative' }}>
-              <Doughnut 
-                data={createDonutData(stats.demo.education)} 
-                options={donutOptions} 
-              />
+              <Doughnut data={createDonutData(stats.demo.education)} options={donutOptions} />
             </Box>
           </Paper>
         </Grid>
-
-        {/* Age Bar */}
         <Grid item xs={12} md={3}>
           <Paper elevation={3} sx={{ p: 3, height: 400 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', textAlign: 'center' }}>Age Distribution</Typography>
@@ -437,7 +370,6 @@ export default function OverallScores() {
           </Paper>
         </Grid>
       </Grid>
-
     </Container>
   );
 }

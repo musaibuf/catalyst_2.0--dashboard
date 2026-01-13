@@ -26,14 +26,14 @@ const CLUSTER_KEYS = {
     { id: 'c_social_media', label: 'Social Media' }
   ],
   selfLeadership: [
-    { id: 'sl_leadership', label: 'Leadership & Conflict' },
+    { id: 'sl_leadership', label: 'Leadership & Conflict Management' },
     { id: 'sl_resilience', label: 'Resilience' },
-    { id: 'sl_time_mgmt', label: 'Time Management' }
+    { id: 'sl_time_mgmt', label: 'Personal Effectiveness & Time Management' }
   ],
   interpersonal: [
-    { id: 'i_communication', label: 'Communication' },
-    { id: 'i_positive_env', label: 'Positive Environment' },
-    { id: 'i_org_skills', label: 'Org Skills' }
+    { id: 'i_communication', label: 'Communication Skills' },
+    { id: 'i_positive_env', label: 'Building a Positive Environment' },
+    { id: 'i_org_skills', label: 'Organization Skills & Team Management' }
   ]
 };
 
@@ -58,7 +58,7 @@ export default function ParticipantBreakdown() {
     setCurrentData(participants.find(p => p.cnic === cnic));
   };
 
-  if (!currentData) return <Container><Typography sx={{mt:4}}>Loading Data...</Typography></Container>;
+  if (!currentData) return <Container><Typography sx={{mt:4}}>No data available yet.</Typography></Container>;
 
   // --- CHART OPTIONS ---
   const commonOptions = {
