@@ -250,21 +250,21 @@ export default function DemographicsComparison() {
       <Paper 
         elevation={0} 
         sx={{ 
-          p: 4, // Increased padding
+          p: 3, 
           mb: 4, 
           bgcolor: '#e3f2fd', 
           border: '1px solid #bbdefb',
           borderRadius: 2
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 3 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>
           FILTERS:
         </Typography>
         
-        <Grid container spacing={4} alignItems="center">
-          {/* Row 1: Dropdowns (Standard Size - Taller and Wider) */}
+        <Grid container spacing={3} alignItems="center">
+          {/* Row 1: Dropdowns (Wider - 4 items per row = md={3}) */}
           <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
               <InputLabel sx={{ fontSize: '1.1rem' }}>Region</InputLabel>
               <Select
                 value={filters.region}
@@ -278,7 +278,7 @@ export default function DemographicsComparison() {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
               <InputLabel sx={{ fontSize: '1.1rem' }}>Dealership</InputLabel>
               <Select
                 value={filters.dealership}
@@ -292,7 +292,7 @@ export default function DemographicsComparison() {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
               <InputLabel sx={{ fontSize: '1.1rem' }}>Gender</InputLabel>
               <Select
                 value={filters.gender}
@@ -308,7 +308,7 @@ export default function DemographicsComparison() {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <FormControl fullWidth sx={{ bgcolor: 'white' }}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
               <InputLabel sx={{ fontSize: '1.1rem' }}>Education</InputLabel>
               <Select
                 value={filters.education}
@@ -321,9 +321,9 @@ export default function DemographicsComparison() {
             </FormControl>
           </Grid>
 
-          {/* Row 2: Sliders (Bigger and Thicker) */}
+          {/* Row 2: Sliders (Full width) */}
           <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6', fontSize: '1rem' }}>
               Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}
             </Typography>
             <Slider
@@ -334,15 +334,15 @@ export default function DemographicsComparison() {
               max={80}
               sx={{ 
                 color: '#0039a6', 
-                height: 10, // Thicker track
-                '& .MuiSlider-thumb': { width: 24, height: 24 }, // Bigger thumb
+                height: 10, 
+                '& .MuiSlider-thumb': { width: 24, height: 24 },
                 mt: 1 
               }}
             />
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24' }}>
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24', fontSize: '1rem' }}>
               Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}
             </Typography>
             <Slider
@@ -353,8 +353,8 @@ export default function DemographicsComparison() {
               max={60}
               sx={{ 
                 color: '#e31e24', 
-                height: 10, // Thicker track
-                '& .MuiSlider-thumb': { width: 24, height: 24 }, // Bigger thumb
+                height: 10, 
+                '& .MuiSlider-thumb': { width: 24, height: 24 },
                 mt: 1 
               }}
             />
