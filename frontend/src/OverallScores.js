@@ -6,7 +6,7 @@ import {
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, RadialLinearScale, PointElement, LineElement, Filler
 } from 'chart.js';
-import { Bar, Doughnut, Radar } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 ChartJS.register(
@@ -59,7 +59,7 @@ export default function OverallScores() {
   const [rawData, setRawData] = useState([]);
   const [stats, setStats] = useState(null);
   
-  // --- UPDATED FILTERS STATE ---
+  // --- FILTERS STATE ---
   const [filters, setFilters] = useState({
     region: 'All',
     dealership: 'All',
@@ -83,7 +83,7 @@ export default function OverallScores() {
   useEffect(() => {
     if (rawData.length === 0) return;
 
-    // --- UPDATED FILTER LOGIC ---
+    // --- FILTER LOGIC ---
     const filtered = rawData.filter(row => {
       const age = parseFloat(row.age) || 0;
       const exp = parseFloat(row['Years of Experience at Pak Suzuki']) || 0;
@@ -118,15 +118,32 @@ export default function OverallScores() {
       education: {}
     };
 
+    // Big 5 Sums
+    const oceanSums = { O:0, C:0, E:0, A:0, N:0 };
+    const oceanCounts = { O:0, C:0, E:0, A:0, N:0 };
+
     filtered.forEach(p => {
+      // Scores
       const scores = p.scores || {};
       Object.keys(sums).forEach(key => {
         if (scores[key] !== undefined) {
-          sums[key] += scores[key];
+          // Convert % back to 1-4 scale for aggregation
+          const rawVal = (scores[key] / 100) * 4;
+          sums[key] += rawVal;
           counts[key]++;
         }
       });
 
+      // Big 5
+      const o = p.calculated.ocean;
+      Object.keys(o).forEach(key => {
+          if(o[key] > 0) {
+              oceanSums[key] += o[key];
+              oceanCounts[key]++;
+          }
+      });
+
+      // Demographics
       const g = p.gender ? p.gender.trim().toLowerCase() : '';
       if (g === 'male') demo.gender.Male++;
       else if (g === 'female') demo.gender.Female++;
@@ -145,43 +162,30 @@ export default function OverallScores() {
 
     const averages = {};
     
-    // Competencies
+    // Competencies (Calculate Average on 1-4 Scale)
     ['cognitive', 'selfLeadership', 'interpersonal'].forEach(clusterKey => {
       let clusterSum = 0;
       let clusterItems = 0;
       CLUSTERS[clusterKey].keys.forEach(k => {
-        // FIX: sums[k.id] is sum of percentages. Divide by count to get avg %.
-        const avgPct = counts[k.id] > 0 ? sums[k.id] / counts[k.id] : 0;
-        averages[k.id] = avgPct;
+        const avgRaw = counts[k.id] > 0 ? sums[k.id] / counts[k.id] : 0;
+        averages[k.id] = avgRaw;
         
-        if (avgPct > 0) { 
-          clusterSum += avgPct; 
+        if (avgRaw > 0) { 
+          clusterSum += avgRaw; 
           clusterItems++; 
         }
       });
       averages[`${clusterKey}_overall`] = clusterItems > 0 ? clusterSum / clusterItems : 0;
     });
 
-    // Big 5 (Re-calculate from raw 1-5 scores in calculated object)
-    const oceanSums = { O:0, C:0, E:0, A:0, N:0 };
-    const oceanCounts = { O:0, C:0, E:0, A:0, N:0 };
-
-    filtered.forEach(p => {
-        const o = p.calculated.ocean;
-        Object.keys(o).forEach(key => {
-            if(o[key] > 0) {
-                oceanSums[key] += o[key];
-                oceanCounts[key]++;
-            }
-        });
-    });
-
+    // Big 5 (Calculate Average on 1-5 Scale)
     CLUSTERS.ocean.keys.forEach(k => {
         const keyChar = k.id.split('_')[1].toUpperCase();
         const rawAvg = oceanCounts[keyChar] > 0 ? oceanSums[keyChar] / oceanCounts[keyChar] : 0;
-        averages[k.id] = rawAvg; // Store raw 1-5 avg for normalization later
+        averages[k.id] = rawAvg;
     });
 
+    // Grand Overall (Average of the 3 competency clusters on 1-4 scale)
     averages.grand_overall = (averages.cognitive_overall + averages.selfLeadership_overall + averages.interpersonal_overall) / 3;
 
     setStats({ averages, demo, count: filtered.length });
@@ -194,7 +198,7 @@ export default function OverallScores() {
     return {
       labels: cluster.keys.map(k => k.label),
       datasets: [{
-        label: 'Score %',
+        label: 'Score (1-4)',
         data: cluster.keys.map(k => stats.averages[k.id]),
         backgroundColor: cluster.color,
         barPercentage: 0.6,
@@ -212,7 +216,7 @@ export default function OverallScores() {
     }]
   });
 
-  // FIX: Normalize Big 5 to 100%
+  // Normalize Big 5 to 100%
   const createBig5Donut = () => {
     if (!stats) return { labels: [], datasets: [] };
     const rawValues = CLUSTERS.ocean.keys.map(k => stats.averages[k.id]);
@@ -244,7 +248,7 @@ export default function OverallScores() {
       }
     },
     scales: {
-      y: { max: 100, beginAtZero: true, grid: { color: '#f0f0f0' } },
+      y: { max: 4, beginAtZero: true, grid: { color: '#f0f0f0' } },
       x: { 
         grid: { display: false },
         ticks: { autoSkip: false, maxRotation: 45, minRotation: 45, font: { size: 10 } } 
@@ -268,58 +272,81 @@ export default function OverallScores() {
     <Container maxWidth="xl" sx={{ pb: 5 }}>
       <Box sx={{ mb: 2 }}><Typography variant="h4" sx={{ fontWeight: 'bold', color: '#0039a6' }}>Overall Scores & Demographics</Typography></Box>
 
-      {/* --- UPDATED FILTERS SECTION --- */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, bgcolor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 2 }}>
+      {/* --- UPDATED FILTERS SECTION (MATCHING DEMOGRAPHICS STYLE) --- */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 3, 
+          mb: 4, 
+          bgcolor: '#e3f2fd', 
+          border: '1px solid #bbdefb', 
+          borderRadius: 2 
+        }}
+      >
         <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 2 }}>FILTERS:</Typography>
-        <Grid container spacing={2} alignItems="center">
-          {/* Row 1: Dropdowns (Wider) */}
-          <Grid item xs={12} sm={6} md={3}>
-                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-              <InputLabel>Region</InputLabel>
-              <Select value={filters.region} label="Region" onChange={(e) => setFilters({...filters, region: e.target.value})}>
+        
+        <Grid container spacing={3} alignItems="center">
+          {/* Row 1: Dropdowns (Wider - md={3}) */}
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Region</InputLabel>
+              <Select value={filters.region} label="Region" onChange={(e) => setFilters({...filters, region: e.target.value})} sx={{ fontSize: '1.1rem', py: 0.5 }}>
                 {regions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-              <InputLabel>Dealership</InputLabel>
-              <Select value={filters.dealership} label="Dealership" onChange={(e) => setFilters({...filters, dealership: e.target.value})}>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Dealership</InputLabel>
+              <Select value={filters.dealership} label="Dealership" onChange={(e) => setFilters({...filters, dealership: e.target.value})} sx={{ fontSize: '1.1rem', py: 0.5 }}>
                 {dealerships.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-              <InputLabel>Gender</InputLabel>
-              <Select value={filters.gender} label="Gender" onChange={(e) => setFilters({...filters, gender: e.target.value})}>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Gender</InputLabel>
+              <Select value={filters.gender} label="Gender" onChange={(e) => setFilters({...filters, gender: e.target.value})} sx={{ fontSize: '1.1rem', py: 0.5 }}>
                 <MenuItem value="All">All</MenuItem>
                 <MenuItem value="Male">Male</MenuItem>
                 <MenuItem value="Female">Female</MenuItem>
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-                        <FormControl fullWidth size="small" sx={{ bgcolor: 'white' }}>
-              <InputLabel>Education</InputLabel>
-              <Select value={filters.education} label="Education" onChange={(e) => setFilters({...filters, education: e.target.value})}>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth sx={{ bgcolor: 'white', minWidth: '140px' }}>
+              <InputLabel sx={{ fontSize: '1.1rem' }}>Education</InputLabel>
+              <Select value={filters.education} label="Education" onChange={(e) => setFilters({...filters, education: e.target.value})} sx={{ fontSize: '1.1rem', py: 0.5 }}>
                 {degrees.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
 
-          {/* Row 2: Sliders */}
+          {/* Row 2: Sliders (Full Width) */}
           <Grid item xs={12} md={6}>
-            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6' }}>Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}</Typography>
-            <Slider value={filters.ageRange} onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })} valueLabelDisplay="auto" min={0} max={80} sx={{ color: '#0039a6', mt: 1 }} />
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#0039a6', fontSize: '1rem' }}>Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}</Typography>
+            <Slider 
+              value={filters.ageRange} 
+              onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })} 
+              valueLabelDisplay="auto" 
+              min={0} max={80} 
+              sx={{ color: '#0039a6', height: 10, '& .MuiSlider-thumb': { width: 24, height: 24 }, mt: 1 }} 
+            />
           </Grid>
           <Grid item xs={12} md={6}>
-            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24' }}>Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}</Typography>
-            <Slider value={filters.expRange} onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })} valueLabelDisplay="auto" min={0} max={60} sx={{ color: '#e31e24', mt: 1 }} />
+            <Typography variant="caption" gutterBottom sx={{ fontWeight: 'bold', color: '#e31e24', fontSize: '1rem' }}>Experience (Yrs): {filters.expRange[0]} - {filters.expRange[1]}</Typography>
+            <Slider 
+              value={filters.expRange} 
+              onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })} 
+              valueLabelDisplay="auto" 
+              min={0} max={60} 
+              sx={{ color: '#e31e24', height: 10, '& .MuiSlider-thumb': { width: 24, height: 24 }, mt: 1 }} 
+            />
           </Grid>
         </Grid>
       </Paper>
 
+      {/* 1. SCORE CARDS */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={2.4}>
           <Paper elevation={3} sx={{ p: 3, bgcolor: '#fff', borderLeft: '6px solid #333', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -329,30 +356,31 @@ export default function OverallScores() {
         </Grid>
         <Grid item xs={12} md={2.4}>
           <Paper elevation={3} sx={{ p: 3, bgcolor: '#0039a6', color: 'white', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <Typography variant="h3" sx={{ fontWeight: 'bold' }}>{stats.averages.grand_overall.toFixed(2)}%</Typography>
-            <Typography variant="subtitle1">Grand Overall Score</Typography>
+            <Typography variant="h3" sx={{ fontWeight: 'bold' }}>{stats.averages.grand_overall.toFixed(2)}</Typography>
+            <Typography variant="subtitle1">Grand Overall (1-4)</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={2.4}>
           <Paper elevation={2} sx={{ p: 3, borderTop: '4px solid #0039a6', textAlign: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#0039a6' }}>{stats.averages.cognitive_overall.toFixed(2)}%</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#0039a6' }}>{stats.averages.cognitive_overall.toFixed(2)}</Typography>
             <Typography variant="body2" color="textSecondary">Cognitive Skills</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={2.4}>
           <Paper elevation={2} sx={{ p: 3, borderTop: '4px solid #e31e24', textAlign: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#e31e24' }}>{stats.averages.selfLeadership_overall.toFixed(2)}%</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#e31e24' }}>{stats.averages.selfLeadership_overall.toFixed(2)}</Typography>
             <Typography variant="body2" color="textSecondary">Self-Leadership</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={2.4}>
           <Paper elevation={2} sx={{ p: 3, borderTop: '4px solid #4caf50', textAlign: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4caf50' }}>{stats.averages.interpersonal_overall.toFixed(2)}%</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4caf50' }}>{stats.averages.interpersonal_overall.toFixed(2)}</Typography>
             <Typography variant="body2" color="textSecondary">Interpersonal Skills</Typography>
           </Paper>
         </Grid>
       </Grid>
 
+      {/* 2. COMPETENCY BREAKDOWN CHARTS */}
       <Grid container spacing={4} sx={{ mb: 6 }}>
         <Grid item xs={12} md={4}>
           <Paper elevation={3} sx={{ p: 3, height: 450 }}>
@@ -376,6 +404,7 @@ export default function OverallScores() {
 
       <Divider sx={{ mb: 6 }} />
 
+      {/* 3. BIG 5 & DEMOGRAPHICS */}
       <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#333', mb: 3 }}>
         Demographics & Personality Profile
       </Typography>
