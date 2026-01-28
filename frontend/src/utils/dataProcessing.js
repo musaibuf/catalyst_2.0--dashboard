@@ -1,9 +1,15 @@
 import Papa from 'papaparse';
+
+// --- IMPORT CSV FILES ---
 import participantFile from '../data/participants.csv';
+import big5File from '../data/Big 5 Personality - Sheet1.csv';
+import otFile from '../data/OT - Response Sheet - Sheet1.csv';
+import roleplayFile from '../data/Roleplay - Catalyst 2.0 - Sheet1.csv';
+import sjtAFile from '../data/SJT - A Response Sheet - Sheet1.csv';
+import sjtBFile from '../data/SJT - B Response Sheet - Sheet1.csv';
 
 // --- CONFIGURATION ---
-// REPLACE THIS WITH YOUR RENDER BACKEND URL AFTER DEPLOYMENT
-const API_URL = "https://catalyst-backend-ggzy.onrender.com"; 
+const MAX_SCORE = 4; 
 
 const TIERS = {
   DIAMOND: { label: 'Diamond', color: '#b9f2ff', min: 81 },
@@ -12,25 +18,52 @@ const TIERS = {
   BRONZE: { label: 'Bronze', color: '#cd7f32', min: 0 }
 };
 
+// ORDER MATTERS HERE: This order matches SJT Q1 to Q12
 const COMPETENCIES = [
-  // Cognitive
+  // Cognitive (Q1 - Q6)
   { id: 'c_problem_solving', label: 'Problem Solving', cluster: 'cognitive' },
   { id: 'c_asking_questions', label: 'Asking the Right Questions', cluster: 'cognitive' },
   { id: 'c_listening', label: 'Listening Skills', cluster: 'cognitive' },
   { id: 'c_decision_making', label: 'Decision Making', cluster: 'cognitive' },
   { id: 'c_strategic_sales', label: 'Strategic Sales', cluster: 'cognitive' },
   { id: 'c_social_media', label: 'Social Media', cluster: 'cognitive' },
-  // Self-Leadership
+  // Self-Leadership (Q7 - Q9)
   { id: 'sl_leadership', label: 'Leadership & Conflict Management', cluster: 'selfLeadership' },
   { id: 'sl_resilience', label: 'Resilience', cluster: 'selfLeadership' },
   { id: 'sl_time_mgmt', label: 'Personal Effectiveness & Time Management', cluster: 'selfLeadership' },
-  // Interpersonal
+  // Interpersonal (Q10 - Q12)
   { id: 'i_communication', label: 'Communication Skills', cluster: 'interpersonal' },
   { id: 'i_positive_env', label: 'Building a Positive Environment', cluster: 'interpersonal' },
   { id: 'i_org_skills', label: 'Organization Skills & Team Management', cluster: 'interpersonal' }
 ];
 
-// --- 5-LEVEL DETAILED FEEDBACK DATABASE ---
+// --- MAPPING (UPDATED TO USE Z-SCORED COLUMNS) ---
+const CSV_COLUMN_MAPPING = {
+  // Big 5 (Stays the same)
+  ocean_o: 'Openness',
+  ocean_c: 'Conscientiousness',
+  ocean_e: 'Extraversion',
+  ocean_a: 'Agreeableness',
+  ocean_n: 'Neuroticism',
+
+  // Competencies (Mapped to Z-Scored Headers in OT/Roleplay)
+  c_problem_solving: 'Problem Solving(z scored)',
+  c_asking_questions: 'Asking Questions(z scored)',
+  c_listening: 'Listening Skills(z scored)',
+  c_decision_making: 'Decision Making(z scored)',
+  c_strategic_sales: 'Strategic Sales(z scored)',
+  c_social_media: 'Social Media(z scored)',
+  
+  sl_leadership: 'Leadership & Conflict(z scored)',
+  sl_resilience: 'Resilience(z scored)',
+  sl_time_mgmt: 'Personal Effectiveness(z scored)',
+  
+  i_communication: 'Communication(z scored)',
+  i_positive_env: 'Positive Env.(z scored)',
+  i_org_skills: 'Org. Skills(z scored)'
+};
+
+// --- FEEDBACK DATABASES ---
 const FEEDBACK_DB = {
   c_problem_solving: {
     ex_low: { title: "Foundations of Logic", duration: "2 Days", areas: "Defining Problems, Fact vs Opinion", method: "Drills", rationale: "Struggles to identify core issues." },
@@ -118,7 +151,6 @@ const FEEDBACK_DB = {
   }
 };
 
-// --- BIG 5 FEEDBACK DATABASE ---
 const BIG5_FEEDBACK = {
   O: {
     high: { band: 'High (4.2-5.0)', interpretation: 'Strong natural tendency', context: 'Comfortable with new customer types, ambiguity, and unscripted conversations', strength: 'Can adapt to lifestyle-led, non-linear sales conversations', coachPoint: 'Leverage comfort with ambiguity to build deeper customer relationships', readinessFactor: 'Excellent for premium/HNI customers' },
@@ -167,127 +199,214 @@ const normalizeCNIC = (cnic) => {
   return String(cnic).replace(/[^a-zA-Z0-9]/g, '').trim();
 };
 
-export const processData = (callback) => {
-  Papa.parse(participantFile, {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: async (results) => {
-      const csvData = results.data;
+// Helper to parse a single CSV file
+const parseCSV = (file) => {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim(),
+      complete: (results) => resolve(results.data),
+      error: (err) => reject(err)
+    });
+  });
+};
+
+// --- MAIN PROCESSING FUNCTION ---
+export const processData = async (callback) => {
+  try {
+    // 1. Load all CSV files in parallel
+    const [
+      participants,
+      big5Data,
+      otData,
+      roleplayData,
+      sjtAData,
+      sjtBData
+    ] = await Promise.all([
+      parseCSV(participantFile),
+      parseCSV(big5File),
+      parseCSV(otFile),
+      parseCSV(roleplayFile),
+      parseCSV(sjtAFile),
+      parseCSV(sjtBFile)
+    ]);
+
+    // 2. Create Lookup Maps for Data Files (Key: Normalized CNIC)
+    const createMap = (data, keyName = 'CNIC') => {
+      const map = new Map();
+      data.forEach(row => {
+        let cnic = row[keyName];
+        if (!cnic && keyName === 'CNIC') cnic = row['cnic']; // Fallback
+        if (cnic) map.set(normalizeCNIC(cnic), row);
+      });
+      return map;
+    };
+
+    const big5Map = createMap(big5Data, 'CNIC');
+    const otMap = createMap(otData, 'Participant CNIC');
+    const roleplayMap = createMap(roleplayData, 'Participant CNIC');
+    const sjtAMap = createMap(sjtAData, 'CNIC');
+    const sjtBMap = createMap(sjtBData, 'CNIC');
+
+    // 3. Merge Data
+    const merged = participants.map(p => {
+      const targetCnic = normalizeCNIC(p['CNIC'] || p['cnic']);
       
-      try {
-        const fetchUrl = `${API_URL}/api/dashboard-data`;
-        const response = await fetch(fetchUrl);
+      // Retrieve data rows from maps
+      const big5Row = big5Map.get(targetCnic) || {};
+      const otRow = otMap.get(targetCnic) || {};
+      const roleplayRow = roleplayMap.get(targetCnic) || {};
+      
+      // Check SJT A first, then B
+      const sjtARow = sjtAMap.get(targetCnic);
+      const sjtBRow = sjtBMap.get(targetCnic);
+      const sjtRow = sjtARow || sjtBRow || {};
+      const isVariantA = !!sjtARow; 
+
+      // Combine all data sources into one object for easier lookup
+      const allDataSources = { ...big5Row, ...otRow, ...roleplayRow, ...sjtRow };
+
+      // --- CALCULATE SCORES ---
+      const finalScores = {};
+      const clusterTotals = { cognitive: 0, selfLeadership: 0, interpersonal: 0 };
+      const clusterCounts = { cognitive: 0, selfLeadership: 0, interpersonal: 0 };
+      const feedbackList = [];
+
+      // --- DETERMINE SJT CLUSTER SCORES (Q13-Q15) ---
+      // These are added to EVERY competency in their respective cluster
+      const q13 = parseFloat(sjtRow['Score of Q13']) || 0;
+      const q14 = parseFloat(sjtRow['Score of Q14']) || 0;
+      const q15 = parseFloat(sjtRow['Score of Q15']) || 0;
+
+      let sjtCognitiveScore = 0;
+      let sjtSelfLeadScore = 0;
+      let sjtInterpersonalScore = 0;
+
+      if (isVariantA) {
+        sjtCognitiveScore = q13;
+        sjtSelfLeadScore = q14;
+        sjtInterpersonalScore = q15;
+      } else if (sjtBRow) {
+        sjtSelfLeadScore = q13;
+        sjtCognitiveScore = q14;
+        sjtInterpersonalScore = q15;
+      }
+
+      // --- CALCULATE COMPETENCY SCORES ---
+      COMPETENCIES.forEach((comp, index) => {
+        const csvHeader = CSV_COLUMN_MAPPING[comp.id];
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // 1. OT Score (Using Z-Scored Column)
+        let otScore = parseFloat(otRow[csvHeader]);
+        
+        // 2. Roleplay Score (Using Z-Scored Column)
+        let rpScore = parseFloat(roleplayRow[csvHeader]);
+        
+        // 3. SJT Specific Question (Q1 - Q12)
+        // Note: Index is 0-based, Questions are 1-based
+        let sjtSpecificScore = parseFloat(sjtRow[`Score Q${index + 1}`]);
+
+        // 4. SJT Cluster Score (The "Averaging Out" Factor)
+        let sjtClusterScore = 0;
+        if (comp.cluster === 'cognitive') sjtClusterScore = sjtCognitiveScore;
+        else if (comp.cluster === 'selfLeadership') sjtClusterScore = sjtSelfLeadScore;
+        else if (comp.cluster === 'interpersonal') sjtClusterScore = sjtInterpersonalScore;
+
+        // --- AVERAGE CALCULATION ---
+        let sum = 0;
+        let count = 0;
+
+        if (!isNaN(otScore)) { sum += otScore; count++; }
+        if (!isNaN(rpScore)) { sum += rpScore; count++; }
+        if (!isNaN(sjtSpecificScore)) { sum += sjtSpecificScore; count++; }
+        if (sjtClusterScore > 0) { sum += sjtClusterScore; count++; }
+
+        // Average Score for this Competency (Scale 1-4)
+        let avgScore = count > 0 ? sum / count : 0;
+        
+        // Calculate Percentage (Score / 4 * 100)
+        const pct = (avgScore / MAX_SCORE) * 100;
+        finalScores[comp.id] = pct;
+
+        // Add to Cluster Totals
+        if (count > 0) {
+          clusterTotals[comp.cluster] += pct;
+          clusterCounts[comp.cluster]++;
         }
 
-        const dbData = await response.json();
+        // Generate Feedback
+        let suggestionObj = { title: "N/A", duration: "", areas: "", method: "", rationale: "" };
+        if (FEEDBACK_DB[comp.id]) {
+            if (avgScore <= 1.5) suggestionObj = FEEDBACK_DB[comp.id].ex_low;
+            else if (avgScore <= 2.2) suggestionObj = FEEDBACK_DB[comp.id].low;
+            else if (avgScore <= 3.0) suggestionObj = FEEDBACK_DB[comp.id].med;
+            else if (avgScore <= 3.6) suggestionObj = FEEDBACK_DB[comp.id].high;
+            else suggestionObj = FEEDBACK_DB[comp.id].ex_high;
+        }
 
-        const merged = csvData.map(p => {
-          const targetCnic = normalizeCNIC(p.cnic);
-          const scoreRecord = dbData.find(s => normalizeCNIC(s.cnic) === targetCnic);
-          
-          if (!scoreRecord) return null; 
+        feedbackList.push({
+          competency: comp.label,
+          score: avgScore.toFixed(1),
+          details: suggestionObj,
+          cluster: comp.cluster
+        });
+      });
 
-          const rawScores = scoreRecord.scores;
-          const compAggregates = {};
-          COMPETENCIES.forEach(comp => { compAggregates[comp.id] = { sum: 0, count: 0 }; });
-          const oceanScores = { O: 0, C: 0, E: 0, A: 0, N: 0 };
+      // C. Big 5 Scores
+      const oceanScores = { O: 0, C: 0, E: 0, A: 0, N: 0 };
+      const big5Feedback = {};
+      
+      ['O', 'C', 'E', 'A', 'N'].forEach(trait => {
+        const key = `ocean_${trait.toLowerCase()}`;
+        const header = CSV_COLUMN_MAPPING[key];
+        let val = parseFloat(big5Row[header]); 
+        if (isNaN(val)) val = 0;
+        
+        oceanScores[trait] = val;
 
-          Object.keys(rawScores).forEach(key => {
-            const val = parseFloat(rawScores[key]); // Changed to parseFloat to handle decimals
-            if (key.startsWith('ocean_')) {
-              const trait = key.split('_')[1].toUpperCase();
-              if (oceanScores[trait] !== undefined) oceanScores[trait] = val;
-              return;
-            }
-            const matchedComp = COMPETENCIES.find(c => key.includes(c.id));
-            if (matchedComp) {
-              compAggregates[matchedComp.id].sum += val;
-              compAggregates[matchedComp.id].count += 1;
-            }
-          });
+        // Generate Big 5 Feedback
+        let feedback = {};
+        if (val >= 4.2) feedback = BIG5_FEEDBACK[trait].high;
+        else if (val >= 3.5) feedback = BIG5_FEEDBACK[trait].moderateHigh;
+        else if (val >= 2.8) feedback = BIG5_FEEDBACK[trait].moderate;
+        else feedback = BIG5_FEEDBACK[trait].low;
 
-          const finalScores = {};
-          const feedbackList = [];
-          const clusterTotals = { cognitive: 0, selfLeadership: 0, interpersonal: 0 };
-          const clusterCounts = { cognitive: 0, selfLeadership: 0, interpersonal: 0 };
+        big5Feedback[trait] = {
+          score: val,
+          ...feedback
+        };
+      });
 
-          COMPETENCIES.forEach(comp => {
-            const agg = compAggregates[comp.id];
-            const avgScore = agg.count > 0 ? agg.sum / agg.count : 0;
-            const pct = (avgScore / 4) * 100;
-            finalScores[comp.id] = pct;
+      // D. Overall Calculations
+      const cogPct = clusterCounts.cognitive > 0 ? clusterTotals.cognitive / clusterCounts.cognitive : 0;
+      const slPct = clusterCounts.selfLeadership > 0 ? clusterTotals.selfLeadership / clusterCounts.selfLeadership : 0;
+      const ipPct = clusterCounts.interpersonal > 0 ? clusterTotals.interpersonal / clusterCounts.interpersonal : 0;
+      const overallPct = (cogPct + slPct + ipPct) / 3;
 
-            if (pct > 0) {
-              clusterTotals[comp.cluster] += pct;
-              clusterCounts[comp.cluster]++;
-            }
+      return {
+        ...p, 
+        scores: finalScores,
+        calculated: {
+          cognitive: cogPct,
+          selfLeadership: slPct,
+          interpersonal: ipPct,
+          overall: overallPct,
+          ocean: oceanScores,
+          tier: getTier(overallPct),
+          feedback: feedbackList,
+          big5Feedback: big5Feedback
+        }
+      };
+    });
 
-            let suggestionObj = { title: "N/A", duration: "", areas: "", method: "", rationale: "" };
-            if (FEEDBACK_DB[comp.id]) {
-                if (avgScore <= 1.5) suggestionObj = FEEDBACK_DB[comp.id].ex_low;
-                else if (avgScore <= 2.2) suggestionObj = FEEDBACK_DB[comp.id].low;
-                else if (avgScore <= 3.0) suggestionObj = FEEDBACK_DB[comp.id].med;
-                else if (avgScore <= 3.6) suggestionObj = FEEDBACK_DB[comp.id].high;
-                else suggestionObj = FEEDBACK_DB[comp.id].ex_high;
-            }
+    merged.sort((a, b) => b.calculated.overall - a.calculated.overall);
+    
+    callback(merged);
 
-            feedbackList.push({
-              competency: comp.label,
-              score: avgScore.toFixed(1),
-              details: suggestionObj,
-              cluster: comp.cluster
-            });
-          });
-
-          // --- BIG 5 FEEDBACK GENERATION ---
-          const big5Feedback = {};
-          Object.keys(oceanScores).forEach(trait => {
-            const score = oceanScores[trait]; // Raw 1-5 score
-            let feedback = {};
-            
-            if (score >= 4.2) feedback = BIG5_FEEDBACK[trait].high;
-            else if (score >= 3.5) feedback = BIG5_FEEDBACK[trait].moderateHigh;
-            else if (score >= 2.8) feedback = BIG5_FEEDBACK[trait].moderate;
-            else feedback = BIG5_FEEDBACK[trait].low;
-
-            big5Feedback[trait] = {
-              score: score,
-              ...feedback
-            };
-          });
-
-          const cogPct = clusterCounts.cognitive > 0 ? clusterTotals.cognitive / clusterCounts.cognitive : 0;
-          const slPct = clusterCounts.selfLeadership > 0 ? clusterTotals.selfLeadership / clusterCounts.selfLeadership : 0;
-          const ipPct = clusterCounts.interpersonal > 0 ? clusterTotals.interpersonal / clusterCounts.interpersonal : 0;
-          const overallPct = (cogPct + slPct + ipPct) / 3;
-
-          return {
-            ...p,
-            scores: finalScores,
-            calculated: {
-              cognitive: cogPct,
-              selfLeadership: slPct,
-              interpersonal: ipPct,
-              overall: overallPct,
-              ocean: oceanScores,
-              tier: getTier(overallPct),
-              feedback: feedbackList,
-              big5Feedback: big5Feedback // New Field
-            }
-          };
-        }).filter(Boolean);
-
-        merged.sort((a, b) => b.calculated.overall - a.calculated.overall);
-        callback(merged);
-
-      } catch (error) {
-        console.error("❌ Error fetching DB data:", error);
-        callback([]);
-      }
-    }
-  });
+  } catch (error) {
+    console.error("❌ Error processing data:", error);
+    callback([]);
+  }
 };

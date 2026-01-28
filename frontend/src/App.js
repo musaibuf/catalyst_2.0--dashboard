@@ -50,6 +50,8 @@ import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 
 // --- THEME CONFIGURATION ---
 const dashboardTheme = createTheme({
@@ -81,16 +83,15 @@ const dashboardTheme = createTheme({
 const drawerWidth = 280;
 const appBarHeight = 90; 
 
-// --- SIDEBAR MENU ITEMS (UPDATED ORDER) ---
+// --- SIDEBAR MENU ITEMS ---
 const menuItems = [
   { id: 1, text: 'Participants Overview', icon: <PeopleIcon />, sub: 'Catalyst 2.0' },
-  { id: 2, text: 'Demographics', icon: <PieChartIcon />, sub: 'Catalyst 2.0' }, // Moved Up & Renamed
+  { id: 2, text: 'Demographics', icon: <PieChartIcon />, sub: 'Catalyst 2.0' },
   { id: 3, text: 'Participant Rankings', icon: <EmojiEventsIcon />, sub: '' },
   { id: 4, text: 'Dealership Rankings', icon: <StoreIcon />, sub: '' },
-  { id: 5, text: 'Overall Scores', icon: <AssessmentIcon />, sub: 'Competency & Big 5' }, // Updated Sub
+  { id: 5, text: 'Overall Scores', icon: <AssessmentIcon />, sub: 'Competency & Big 5' },
   { id: 6, text: 'Participant Breakdown', icon: <PersonSearchIcon />, sub: 'Individual' },
   { id: 7, text: 'Competency Comparison', icon: <CompareArrowsIcon />, sub: 'Cat vs Cat 2.0' },
-  // Removed Participant Trends
 ];
 
 // --- DASHBOARD COMPONENT ---
@@ -103,7 +104,8 @@ function Dashboard() {
     region: '',
     dealership: '',
     degree: '',
-    experience: ''
+    experience: '',
+    attendance: '' // Added attendance filter state
   });
 
   // --- LOAD CSV DATA ---
@@ -120,19 +122,20 @@ function Dashboard() {
   }, []);
 
   // --- FILTER LOGIC ---
-  const uniqueRegions = useMemo(() => [...new Set(participantsList.map(p => p.region))].filter(Boolean).sort(), [participantsList]);
-  const uniqueDealerships = useMemo(() => [...new Set(participantsList.map(p => p.dealership))].filter(Boolean).sort(), [participantsList]);
-  const uniqueDegrees = useMemo(() => [...new Set(participantsList.map(p => p.degree))].filter(Boolean).sort(), [participantsList]);
-  const uniqueExperience = useMemo(() => [...new Set(participantsList.map(p => p['Years of Experience at Pak Suzuki']))]
+  const uniqueRegions = useMemo(() => [...new Set(participantsList.map(p => p['Region']))].filter(Boolean).sort(), [participantsList]);
+  const uniqueDealerships = useMemo(() => [...new Set(participantsList.map(p => p['Dealership Name']))].filter(Boolean).sort(), [participantsList]);
+  const uniqueDegrees = useMemo(() => [...new Set(participantsList.map(p => p['Last Degree']))].filter(Boolean).sort(), [participantsList]);
+  const uniqueExperience = useMemo(() => [...new Set(participantsList.map(p => p['years of experience at pak suzuki']))]
     .filter(Boolean)
     .sort((a, b) => Number(a) - Number(b)), [participantsList]);
 
   const filteredParticipants = useMemo(() => {
     return participantsList.filter(item => {
-      if (filters.region && item.region !== filters.region) return false;
-      if (filters.dealership && item.dealership !== filters.dealership) return false;
-      if (filters.degree && item.degree !== filters.degree) return false;
-      if (filters.experience && item['Years of Experience at Pak Suzuki'] !== filters.experience) return false;
+      if (filters.region && item['Region'] !== filters.region) return false;
+      if (filters.dealership && item['Dealership Name'] !== filters.dealership) return false;
+      if (filters.degree && item['Last Degree'] !== filters.degree) return false;
+      if (filters.experience && item['years of experience at pak suzuki'] !== filters.experience) return false;
+      if (filters.attendance && item['Attendance'] !== filters.attendance) return false; // Added attendance check
       return true;
     });
   }, [participantsList, filters]);
@@ -142,16 +145,22 @@ function Dashboard() {
   };
 
   const resetFilters = () => {
-    setFilters({ region: '', dealership: '', degree: '', experience: '' });
+    setFilters({ region: '', dealership: '', degree: '', experience: '', attendance: '' });
   };
 
   // --- DYNAMIC CONTENT RENDERER ---
   const renderContent = () => {
     switch (activePage) {
       case 1:
+        // --- CALCULATIONS ---
         const totalCount = filteredParticipants.length;
-        const dealershipCount = [...new Set(filteredParticipants.map(p => p.dealership))].length;
-        const regionCount = [...new Set(filteredParticipants.map(p => p.region))].length;
+        
+        // Calculate Present and Absent dynamically based on filters
+        const presentCount = filteredParticipants.filter(p => p['Attendance'] === 'Present').length;
+        const absentCount = filteredParticipants.filter(p => p['Attendance'] === 'Absent').length;
+
+        const dealershipCount = [...new Set(filteredParticipants.map(p => p['Dealership Name']))].length;
+        const regionCount = [...new Set(filteredParticipants.map(p => p['Region']))].length;
 
         // --- NEW FILTER STRIP COMPONENT ---
         const ParticipantsFilters = () => (
@@ -173,7 +182,7 @@ function Dashboard() {
               FILTERS:
             </Typography>
 
-            <FormControl sx={{ minWidth: 220, bgcolor: 'white' }} size="small">
+            <FormControl sx={{ minWidth: 180, bgcolor: 'white' }} size="small">
               <InputLabel>Region</InputLabel>
               <Select value={filters.region} label="Region" onChange={(e) => handleFilterChange('region', e.target.value)}>
                 <MenuItem value=""><em>All Regions</em></MenuItem>
@@ -181,7 +190,7 @@ function Dashboard() {
               </Select>
             </FormControl>
 
-            <FormControl sx={{ minWidth: 280, bgcolor: 'white' }} size="small">
+            <FormControl sx={{ minWidth: 240, bgcolor: 'white' }} size="small">
               <InputLabel>Dealership Location</InputLabel>
               <Select value={filters.dealership} label="Dealership Location" onChange={(e) => handleFilterChange('dealership', e.target.value)}>
                 <MenuItem value=""><em>All Dealerships</em></MenuItem>
@@ -189,7 +198,16 @@ function Dashboard() {
               </Select>
             </FormControl>
 
-            <FormControl sx={{ minWidth: 200, bgcolor: 'white' }} size="small">
+            <FormControl sx={{ minWidth: 150, bgcolor: 'white' }} size="small">
+              <InputLabel>Attendance</InputLabel>
+              <Select value={filters.attendance} label="Attendance" onChange={(e) => handleFilterChange('attendance', e.target.value)}>
+                <MenuItem value=""><em>All Status</em></MenuItem>
+                <MenuItem value="Present">Present</MenuItem>
+                <MenuItem value="Absent">Absent</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl sx={{ minWidth: 160, bgcolor: 'white' }} size="small">
               <InputLabel>Degree</InputLabel>
               <Select value={filters.degree} label="Degree" onChange={(e) => handleFilterChange('degree', e.target.value)}>
                 <MenuItem value=""><em>All Degrees</em></MenuItem>
@@ -197,7 +215,7 @@ function Dashboard() {
               </Select>
             </FormControl>
 
-            <FormControl sx={{ minWidth: 180, bgcolor: 'white' }} size="small">
+            <FormControl sx={{ minWidth: 160, bgcolor: 'white' }} size="small">
               <InputLabel>Experience (Yrs)</InputLabel>
               <Select value={filters.experience} label="Experience (Yrs)" onChange={(e) => handleFilterChange('experience', e.target.value)}>
                 <MenuItem value=""><em>All Experience</em></MenuItem>
@@ -222,11 +240,21 @@ function Dashboard() {
         return (
           <PageLayout title="Participants Overview (Catalyst 2.0)">
             <ParticipantsFilters />
-            <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
-              <PlaceholderCard title="Total Participants" value={totalCount} color="#0039a6" />
-              <PlaceholderCard title="Dealerships" value={dealershipCount} color="#e31e24" />
-              <PlaceholderCard title="Active Regions" value={regionCount} color="#2e7d32" />
+            
+            {/* --- SUMMARY BOXES --- */}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+              <PlaceholderCard title="Total Participants" value={totalCount} color="#0039a6" icon={<PeopleIcon />} />
+              
+              {/* Present Box */}
+              <PlaceholderCard title="Present" value={presentCount} color="#2e7d32" icon={<CheckCircleIcon />} />
+              
+              {/* Absent Box */}
+              <PlaceholderCard title="Absent" value={absentCount} color="#d32f2f" icon={<CancelIcon />} />
+              
+              <PlaceholderCard title="Dealerships" value={dealershipCount} color="#ed6c02" icon={<StoreIcon />} />
+              <PlaceholderCard title="Active Regions" value={regionCount} color="#009688" icon={<PieChartIcon />} />
             </Box>
+
             <Paper sx={{ mt: 2, width: '100%', overflow: 'hidden', boxShadow: 2, border: '1px solid #eee' }}>
               <TableContainer sx={{ maxHeight: 600 }}>
                 <Table stickyHeader aria-label="participants table">
@@ -240,28 +268,37 @@ function Dashboard() {
                       <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Gender</TableCell>
                       <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Degree</TableCell>
                       <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Exp (Yrs)</TableCell>
+                      <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {filteredParticipants.length > 0 ? (
                       filteredParticipants.map((row, index) => (
                         <TableRow hover role="checkbox" tabIndex={-1} key={index}>
-                          <TableCell sx={{ fontWeight: 500 }}>{row.name}</TableCell>
-                          <TableCell>{row.cnic}</TableCell>
+                          <TableCell sx={{ fontWeight: 500 }}>{row['Name']}</TableCell>
+                          <TableCell>{row['CNIC']}</TableCell>
                           <TableCell>
-                            <Box sx={{ bgcolor: row.region === 'Karachi' ? '#e3f2fd' : '#fce4ec', color: '#333', p: 0.5, borderRadius: 1, textAlign: 'center', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                              {row.region}
+                            <Box sx={{ bgcolor: row['Region'] === 'Karachi' ? '#e3f2fd' : '#fce4ec', color: '#333', p: 0.5, borderRadius: 1, textAlign: 'center', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                              {row['Region']}
                             </Box>
                           </TableCell>
-                          <TableCell>{row.dealership}</TableCell>
-                          <TableCell>{row.age}</TableCell>
-                          <TableCell sx={{ textTransform: 'capitalize' }}>{row.gender}</TableCell>
-                          <TableCell>{row.degree}</TableCell>
-                          <TableCell>{row['Years of Experience at Pak Suzuki']}</TableCell>
+                          <TableCell>{row['Dealership Name']}</TableCell>
+                          <TableCell>{row['Age']}</TableCell>
+                          <TableCell sx={{ textTransform: 'capitalize' }}>{row['Gender']}</TableCell>
+                          <TableCell>{row['Last Degree']}</TableCell>
+                          <TableCell>{row['years of experience at pak suzuki']}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={row['Attendance']} 
+                              size="small"
+                              color={row['Attendance'] === 'Present' ? 'success' : 'error'}
+                              variant={row['Attendance'] === 'Present' ? 'filled' : 'outlined'}
+                            />
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow><TableCell colSpan={8} align="center" sx={{ py: 3 }}><Typography color="textSecondary">No participants match these filters.</Typography></TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} align="center" sx={{ py: 3 }}><Typography color="textSecondary">No participants match these filters.</Typography></TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -273,11 +310,11 @@ function Dashboard() {
           </PageLayout>
         );
 
-      case 2: return <DemographicsComparison />; // Moved Here
+      case 2: return <DemographicsComparison />;
       case 3: return <ParticipantRankings />;
-case 4: return <DealershipRankings />;
-case 5: return <OverallScores />;
-case 6: return <ParticipantBreakdown />;
+      case 4: return <DealershipRankings />;
+      case 5: return <OverallScores />;
+      case 6: return <ParticipantBreakdown />;
       case 7: return <CompetencyComparison />;
       default: return <Typography>Select a page</Typography>;
     }
@@ -335,10 +372,15 @@ const PageLayout = ({ title, children }) => (
   </Container>
 );
 
-const PlaceholderCard = ({ title, value, color }) => (
-  <Paper elevation={2} sx={{ p: 3, mb: 3, borderLeft: `6px solid ${color}`, display: 'inline-block', minWidth: 200, mr: 3 }}>
-    <Typography variant="subtitle2" color="textSecondary">{title}</Typography>
-    <Typography variant="h4" sx={{ fontWeight: 'bold', color: color }}>{value}</Typography>
+const PlaceholderCard = ({ title, value, color, icon }) => (
+  <Paper elevation={2} sx={{ p: 2, borderLeft: `6px solid ${color}`, display: 'flex', alignItems: 'center', minWidth: 200, flex: '1 1 200px' }}>
+    <Box sx={{ mr: 2, color: color, display: 'flex' }}>
+      {icon}
+    </Box>
+    <Box>
+      <Typography variant="subtitle2" color="textSecondary">{title}</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold', color: color }}>{value}</Typography>
+    </Box>
   </Paper>
 );
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Papa from 'papaparse';
 import catalystFile from './data/catalyst_data.csv';
 import participantFile from './data/participants.csv';
-import { processData } from './utils/dataProcessing'; // Import the central processor
+import { processData } from './utils/dataProcessing'; 
 import {
   Box, Container, Typography, Paper, Grid, Select, MenuItem, FormControl, InputLabel, LinearProgress
 } from '@mui/material';
@@ -12,9 +12,9 @@ const CATEGORIES = {
   cognitive: {
     id: "cognitive",
     title: "Cognitive Skills",
-    color: "#311b92", // Catalyst Purple
-    velocityColor: "#e91e63", // Catalyst 2.0 Pink
-    csvColumn: "Cognitive Skills", // Legacy CSV Column
+    color: "#311b92", 
+    velocityColor: "#e91e63", 
+    csvColumn: "Cognitive Skills", 
     metrics: [
       { label: "Problem Solving", catKey: "Problem Solving Skills", velKey: "c_problem_solving", color: "#d81b60" },
       { label: "Asking the Right Questions", catKey: "Asking The Right Questions", velKey: "c_asking_questions", color: "#673ab7" },
@@ -28,8 +28,8 @@ const CATEGORIES = {
     id: "selfLeadership",
     title: "Self-Leadership Skills",
     color: "#311b92",
-    velocityColor: "#4caf50", // Catalyst 2.0 Green
-    csvColumn: "Self Leadership", // Legacy CSV Column
+    velocityColor: "#4caf50", 
+    csvColumn: "Self Leadership", 
     metrics: [
       { label: "Leadership & Conflict Management", catKey: "Leadership & Conflict Management", velKey: "sl_leadership", color: "#e91e63" },
       { label: "Resilience", catKey: "Resilience", velKey: "sl_resilience", color: "#4a148c" },
@@ -40,8 +40,8 @@ const CATEGORIES = {
     id: "interpersonal",
     title: "Interpersonal Skills",
     color: "#311b92",
-    velocityColor: "#2196f3", // Catalyst 2.0 Blue
-    csvColumn: "Interpersonal", // Legacy CSV Column
+    velocityColor: "#2196f3", 
+    csvColumn: "Interpersonal", 
     metrics: [
       { label: "Communication Skills", catKey: "Communication Skills", velKey: "i_communication", color: "#1a237e" },
       { label: "Building a Positive Environment", catKey: "Builidng Positive Environment", velKey: "i_positive_env", color: "#e64a19" },
@@ -52,27 +52,24 @@ const CATEGORIES = {
 
 export default function CompetencyComparison() {
   const [catalystData, setCatalystData] = useState([]);
-  const [catalyst2Data, setCatalyst2Data] = useState([]); // This is Catalyst 2.0 (formerly Velocity)
-  const [cat2Participants, setCat2Participants] = useState([]); // Raw participant list for filters
+  const [catalyst2Data, setCatalyst2Data] = useState([]); 
+  const [cat2Participants, setCat2Participants] = useState([]); 
   
   const [catFilters, setCatFilters] = useState({ city: 'All', dealership: 'All' });
   const [cat2Filters, setCat2Filters] = useState({ city: 'All', dealership: 'All' });
 
   // --- 1. LOAD DATA ---
   useEffect(() => {
-    // Load Catalyst Legacy CSV
     Papa.parse(catalystFile, {
       download: true, header: true, skipEmptyLines: true,
       complete: (results) => setCatalystData(results.data)
     });
 
-    // Load Catalyst 2.0 Participants (For Filters)
     Papa.parse(participantFile, {
       download: true, header: true, skipEmptyLines: true,
       complete: (results) => setCat2Participants(results.data)
     });
 
-    // Load Catalyst 2.0 Scores using the Data Processor
     const loadLiveScores = () => {
       processData((data) => {
         setCatalyst2Data(data);
@@ -80,32 +77,42 @@ export default function CompetencyComparison() {
     };
     loadLiveScores();
 
-    // Poll for live updates
     const interval = setInterval(loadLiveScores, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  // --- 2. EXTRACT FILTERS ---
+  // --- 2. EXTRACT FILTERS (FIXED KEYS) ---
   const catCities = useMemo(() => ['All', ...new Set(catalystData.map(d => d["Development center city"]).filter(Boolean))].sort(), [catalystData]);
   const catDealerships = useMemo(() => ['All', ...new Set(catalystData.map(d => d["Participant's dealership location"]).filter(Boolean))].sort(), [catalystData]);
 
-  const cat2Cities = useMemo(() => ['All', ...new Set(cat2Participants.map(d => d.region).filter(Boolean))].sort(), [cat2Participants]);
-  const cat2Dealerships = useMemo(() => ['All', ...new Set(cat2Participants.map(d => d.dealership).filter(Boolean))].sort(), [cat2Participants]);
+  // FIXED: Used 'Region' and 'Dealership Name' to match CSV headers exactly
+  const cat2Cities = useMemo(() => ['All', ...new Set(cat2Participants.map(d => d['Region']).filter(Boolean))].sort(), [cat2Participants]);
+  const cat2Dealerships = useMemo(() => ['All', ...new Set(cat2Participants.map(d => d['Dealership Name']).filter(Boolean))].sort(), [cat2Participants]);
 
   // --- 3. CALCULATE AVERAGES ---
   const calculateStats = (data, source, currentFilters) => {
     const filtered = data.filter(row => {
+      
+      // --- ATTENDANCE CHECK (Catalyst 2.0 Only) ---
+      if (source === 'catalyst2') {
+        if (row['Attendance'] !== 'Present') return false;
+      }
+
       let cityMatch = true;
       let dealerMatch = true;
 
       if (source === 'catalyst') {
+        // Legacy Catalyst Logic
         cityMatch = currentFilters.city === 'All' || row["Development center city"] === currentFilters.city;
         dealerMatch = currentFilters.dealership === 'All' || row["Participant's dealership location"] === currentFilters.dealership;
       } else {
-        // Catalyst 2.0 (Data comes from processData, so keys are standard)
-        const rowCity = row.region; 
+        // Catalyst 2.0 Logic (FIXED KEYS)
+        // We must use the exact keys from the CSV: 'Region' and 'Dealership Name'
+        const rowCity = row['Region']; 
+        const rowDealer = row['Dealership Name'];
+
         cityMatch = currentFilters.city === 'All' || rowCity === currentFilters.city;
-        dealerMatch = currentFilters.dealership === 'All' || row.dealership === currentFilters.dealership;
+        dealerMatch = currentFilters.dealership === 'All' || rowDealer === currentFilters.dealership;
       }
       return cityMatch && dealerMatch;
     });
@@ -115,16 +122,14 @@ export default function CompetencyComparison() {
     const stats = {};
 
     // Helper: Calculate Average
-    const getAvg = (key, isNested = false) => {
+    const getAvg = (key) => {
       let sum = 0;
       let count = 0;
       filtered.forEach(row => {
         let val;
         if (source === 'catalyst2') {
-           // Catalyst 2.0: Data is already percentage in row.scores
            val = row.scores?.[key];
         } else {
-           // Catalyst Legacy: Data is 1-6 scale in CSV
            val = parseFloat(row[key]);
         }
         
@@ -137,9 +142,9 @@ export default function CompetencyComparison() {
       if (count === 0) return 0;
       
       if (source === 'catalyst2') {
-        return sum / count; // Already percentage, just average it
+        return sum / count; 
       } else {
-        return ((sum / count) / 6) * 100; // Convert 1-6 scale to %
+        return ((sum / count) / 6) * 100; 
       }
     };
 
@@ -154,13 +159,11 @@ export default function CompetencyComparison() {
 
       // Calculate Category Overall
       if (source === 'catalyst') {
-        // Legacy: Use CSV Summary Column
         stats[`${catKey}_overall`] = getAvg(catConfig.csvColumn);
       } else {
-        // Catalyst 2.0: Use calculated object from processData
         let sum = 0, count = 0;
         filtered.forEach(row => {
-          const val = row.calculated?.[catKey]; // e.g. row.calculated.cognitive
+          const val = row.calculated?.[catKey]; 
           if (val > 0) { sum += val; count++; }
         });
         stats[`${catKey}_overall`] = count > 0 ? sum / count : 0;
@@ -173,7 +176,7 @@ export default function CompetencyComparison() {
     filtered.forEach(row => {
       let val;
       if (source === 'catalyst') {
-        val = parseFloat(row["Total Avg %age"]) * 100; // Convert 0.66 to 66.0
+        val = parseFloat(row["Total Avg %age"]) * 100; 
       } else {
         val = row.calculated?.overall;
       }

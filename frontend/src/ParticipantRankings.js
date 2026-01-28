@@ -10,7 +10,9 @@ export default function ParticipantRankings() {
 
   useEffect(() => {
     processData((data) => {
-      setRankings(data);
+      // Filter out absent participants
+      const presentParticipants = data.filter(p => p['Attendance'] === 'Present');
+      setRankings(presentParticipants);
     });
   }, []);
 
@@ -35,13 +37,13 @@ export default function ParticipantRankings() {
             </TableHead>
             <TableBody>
               {rankings.map((row, index) => (
-                <TableRow key={row.cnic} hover>
+                <TableRow key={index} hover>
                   <TableCell>{index + 1}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{row.name}</TableCell>
-                  <TableCell>{row.cnic}</TableCell>
-                  <TableCell>{row.dealership}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{row['Name']}</TableCell>
+                  <TableCell>{row['CNIC'] || row['cnic']}</TableCell>
+                  <TableCell>{row['Dealership Name']}</TableCell>
                   
-                  {/* UPDATED: Shows 2 decimal places (e.g., 59.72%) */}
+                  {/* Shows 2 decimal places (e.g., 59.72%) */}
                   <TableCell sx={{ fontWeight: 'bold', color: '#0039a6' }}>
                     {row.calculated.overall.toFixed(2)}%
                   </TableCell>
@@ -62,6 +64,7 @@ export default function ParticipantRankings() {
               {rankings.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                    {/* If empty, it might mean loading or no present participants */}
                     Loading Data...
                   </TableCell>
                 </TableRow>

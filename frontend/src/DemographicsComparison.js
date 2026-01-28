@@ -56,20 +56,27 @@ export default function DemographicsComparison() {
   }, []);
 
   // 2. EXTRACT FILTER OPTIONS
-  const regions = useMemo(() => ['All', ...new Set(data.map(d => d.region).filter(Boolean))].sort(), [data]);
-  const dealerships = useMemo(() => ['All', ...new Set(data.map(d => d.dealership).filter(Boolean))].sort(), [data]);
-  const degrees = useMemo(() => ['All', ...new Set(data.map(d => d.degree?.trim()).filter(Boolean))].sort(), [data]);
+  const regions = useMemo(() => ['All', ...new Set(data.map(d => d['Region']).filter(Boolean))].sort(), [data]);
+  const dealerships = useMemo(() => ['All', ...new Set(data.map(d => d['Dealership Name']).filter(Boolean))].sort(), [data]);
+  const degrees = useMemo(() => ['All', ...new Set(data.map(d => d['Last Degree']?.trim()).filter(Boolean))].sort(), [data]);
 
   // 3. PROCESS DATA FOR CHARTS
   const chartData = useMemo(() => {
     const filtered = data.filter(row => {
-      const age = parseFloat(row.age) || 0;
-      const exp = parseFloat(row['Years of Experience at Pak Suzuki']) || 0;
-      const gender = row.gender ? row.gender.trim().toLowerCase() : '';
-      const degree = row.degree ? row.degree.trim() : '';
+      // --- NEW: ATTENDANCE CHECK ---
+      // If the participant is NOT Present, exclude them immediately
+      if (row['Attendance'] !== 'Present') {
+        return false;
+      }
 
-      const regionMatch = filters.region === 'All' || row.region === filters.region;
-      const dealerMatch = filters.dealership === 'All' || row.dealership === filters.dealership;
+      const age = parseFloat(row['Age']) || 0;
+      // Note: CSV header is lowercase for experience
+      const exp = parseFloat(row['years of experience at pak suzuki']) || 0;
+      const gender = row['Gender'] ? row['Gender'].trim().toLowerCase() : '';
+      const degree = row['Last Degree'] ? row['Last Degree'].trim() : '';
+
+      const regionMatch = filters.region === 'All' || row['Region'] === filters.region;
+      const dealerMatch = filters.dealership === 'All' || row['Dealership Name'] === filters.dealership;
       const genderMatch = filters.gender === 'All' || gender === filters.gender.toLowerCase();
       const eduMatch = filters.education === 'All' || degree === filters.education;
       
@@ -83,14 +90,14 @@ export default function DemographicsComparison() {
     // A. Education Breakdown (Donut)
     const eduCounts = {};
     filtered.forEach(d => {
-      const deg = d.degree?.trim() || 'Unknown';
+      const deg = d['Last Degree']?.trim() || 'Unknown';
       eduCounts[deg] = (eduCounts[deg] || 0) + 1;
     });
     
     // B. Experience Breakdown (Horizontal Bar)
     const expBuckets = { '0-5 Years': 0, '6-10 Years': 0, '11-15 Years': 0, '16-20 Years': 0, '20+ Years': 0 };
     filtered.forEach(d => {
-      const exp = parseFloat(d['Years of Experience at Pak Suzuki']);
+      const exp = parseFloat(d['years of experience at pak suzuki']);
       if (!isNaN(exp)) {
         if (exp <= 5) expBuckets['0-5 Years']++;
         else if (exp <= 10) expBuckets['6-10 Years']++;
@@ -103,7 +110,7 @@ export default function DemographicsComparison() {
     // C. Participants by Region (Vertical Bar)
     const regionCounts = {};
     filtered.forEach(d => {
-      const reg = d.region || 'Unknown';
+      const reg = d['Region'] || 'Unknown';
       regionCounts[reg] = (regionCounts[reg] || 0) + 1;
     });
     const sortedRegions = Object.keys(regionCounts).sort();
@@ -112,8 +119,8 @@ export default function DemographicsComparison() {
     const regionEduMap = {};
     const allDegrees = new Set();
     filtered.forEach(d => {
-      const reg = d.region || 'Unknown';
-      const deg = d.degree?.trim() || 'Unknown';
+      const reg = d['Region'] || 'Unknown';
+      const deg = d['Last Degree']?.trim() || 'Unknown';
       allDegrees.add(deg);
       if (!regionEduMap[reg]) regionEduMap[reg] = {};
       regionEduMap[reg][deg] = (regionEduMap[reg][deg] || 0) + 1;
@@ -123,7 +130,7 @@ export default function DemographicsComparison() {
     // E. Age Distribution (Bar)
     const ageBuckets = { 'Under 30': 0, '30-39': 0, '40-49': 0, '50+': 0 };
     filtered.forEach(d => {
-      const age = parseFloat(d.age);
+      const age = parseFloat(d['Age']);
       if (!isNaN(age)) {
         if (age < 30) ageBuckets['Under 30']++;
         else if (age < 40) ageBuckets['30-39']++;
@@ -135,7 +142,7 @@ export default function DemographicsComparison() {
     // F. Gender Distribution (Donut)
     const genderCounts = { Male: 0, Female: 0 };
     filtered.forEach(d => {
-      const g = d.gender ? d.gender.toLowerCase().trim() : '';
+      const g = d['Gender'] ? d['Gender'].toLowerCase().trim() : '';
       if (g === 'male') genderCounts.Male++;
       else if (g === 'female') genderCounts.Female++;
     });
@@ -364,7 +371,7 @@ export default function DemographicsComparison() {
 
       {/* 3. TOTAL PARTICIPANTS */}
       <Paper elevation={2} sx={{ p: 3, mb: 4, borderLeft: '6px solid #0039a6', width: 'fit-content' }}>
-        <Typography variant="h6" color="textSecondary">Total Participants</Typography>
+        <Typography variant="h6" color="textSecondary">Total Participants (Present)</Typography>
         <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#0039a6' }}>
           {chartData.total}
         </Typography>

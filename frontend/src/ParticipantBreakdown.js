@@ -14,8 +14,10 @@ import SchoolIcon from '@mui/icons-material/School';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 
+// Register ChartJS components
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, ChartDataLabels);
 
+// --- CONFIGURATION ---
 const CLUSTER_KEYS = {
   cognitive: [
     { id: 'c_problem_solving', label: 'Problem Solving' },
@@ -58,24 +60,47 @@ export default function ParticipantBreakdown() {
   const [selectedId, setSelectedId] = useState('');
   const [currentData, setCurrentData] = useState(null);
 
+  // Load Data on Mount
   useEffect(() => {
     processData((data) => {
-      setParticipants(data);
-      if (data.length > 0) {
-        setSelectedId(data[0].cnic);
-        setCurrentData(data[0]);
+      // 1. Filter: Only show Present participants
+      // 2. Sort: Alphabetical order by Name
+      const presentParticipants = data
+        .filter(p => p['Attendance'] === 'Present')
+        .sort((a, b) => a['Name'].localeCompare(b['Name']));
+      
+      setParticipants(presentParticipants);
+      
+      if (presentParticipants.length > 0) {
+        // Default to the first participant (now alphabetically first)
+        const first = presentParticipants[0];
+        // Use CNIC or cnic depending on what's available in the row
+        const id = first['CNIC'] || first['cnic'];
+        setSelectedId(id);
+        setCurrentData(first);
+      } else {
+        setCurrentData(null);
       }
     });
   }, []);
 
+  // Handle Dropdown Change
   const handleSelect = (e) => {
-    const cnic = e.target.value;
-    setSelectedId(cnic);
-    setCurrentData(participants.find(p => p.cnic === cnic));
+    const id = e.target.value;
+    setSelectedId(id);
+    const found = participants.find(p => (p['CNIC'] || p['cnic']) === id);
+    setCurrentData(found);
   };
 
-  if (!currentData) return <Container><Typography sx={{mt:4}}>Loading Data...</Typography></Container>;
+  if (!currentData) return (
+    <Container sx={{ mt: 10, textAlign: 'center' }}>
+      <Typography variant="h5" color="textSecondary">
+        {participants.length === 0 ? "No present participants found." : "Loading Participant Data..."}
+      </Typography>
+    </Container>
+  );
 
+  // --- CHART CONFIGURATIONS ---
   const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -85,7 +110,7 @@ export default function ParticipantBreakdown() {
       datalabels: {
         color: '#fff',
         font: { weight: 'bold' },
-        formatter: (val) => val.toFixed(2) + '%',
+        formatter: (val) => val.toFixed(0) + '%',
         anchor: 'center',
         align: 'center'
       }
@@ -96,6 +121,7 @@ export default function ParticipantBreakdown() {
     }
   };
 
+  // 1. Cluster Summary Chart
   const clusterData = {
     labels: ['Cognitive', 'Self-Leadership', 'Interpersonal'],
     datasets: [{
@@ -110,15 +136,19 @@ export default function ParticipantBreakdown() {
     }]
   };
 
+  // 2. Big 5 Chart
+  // Map explicitly to ensure order matches colors
+  const big5Keys = ['O', 'C', 'E', 'A', 'N'];
   const big5Data = {
-    labels: ['Openness', 'Conscientiousness', 'Extraversion', 'Agreeableness', 'Neuroticism'],
+    labels: big5Keys.map(k => BIG5_NAMES[k]),
     datasets: [{
-      data: Object.values(currentData.calculated.ocean),
-      backgroundColor: Object.values(BIG5_COLORS),
+      data: big5Keys.map(k => currentData.calculated.ocean[k]),
+      backgroundColor: big5Keys.map(k => BIG5_COLORS[k]),
       borderWidth: 1
     }]
   };
 
+  // 3. Helper for Breakdown Charts
   const createBreakdownData = (clusterType, color) => {
     const keys = CLUSTER_KEYS[clusterType];
     return {
@@ -133,32 +163,44 @@ export default function ParticipantBreakdown() {
 
   return (
     <Container maxWidth="xl" sx={{ pb: 5 }}>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      
+      {/* HEADER & SELECTOR */}
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#0039a6' }}>
           Participant Breakdown
         </Typography>
         <FormControl size="small" sx={{ minWidth: 300, bgcolor: 'white' }}>
           <InputLabel>Select Participant</InputLabel>
           <Select value={selectedId} label="Select Participant" onChange={handleSelect}>
-            {participants.map(p => (
-              <MenuItem key={p.cnic} value={p.cnic}>{p.name} ({p.cnic})</MenuItem>
-            ))}
+            {participants.map((p, idx) => {
+               const id = p['CNIC'] || p['cnic'];
+               return <MenuItem key={idx} value={id}>{p['Name']} ({id})</MenuItem>
+            })}
           </Select>
         </FormControl>
       </Box>
 
+      {/* PARTICIPANT INFO CARD */}
       <Paper elevation={3} sx={{ p: 3, mb: 4, borderLeft: `6px solid ${currentData.calculated.tier.color}` }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={8}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{currentData.name}</Typography>
-            <Typography variant="subtitle1" color="textSecondary">{currentData.dealership} | {currentData.region}</Typography>
-            <Box sx={{ mt: 1, display: 'flex', gap: 2 }}>
-              <Chip label={`Age: ${currentData.age}`} variant="outlined" />
-              <Chip label={`Exp: ${currentData['Years of Experience at Pak Suzuki']} Yrs`} variant="outlined" />
-              <Chip label={`Gender: ${currentData.gender}`} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{currentData['Name']}</Typography>
+            <Typography variant="subtitle1" color="textSecondary">
+              {currentData['Dealership Name']} | {currentData['Region']}
+            </Typography>
+            <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Chip label={`Age: ${currentData['Age']}`} variant="outlined" />
+              <Chip label={`Exp: ${currentData['years of experience at pak suzuki']} Yrs`} variant="outlined" />
+              <Chip label={`Gender: ${currentData['Gender']}`} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+              <Chip 
+                label={currentData['Attendance']} 
+                color="success" 
+                variant="filled" 
+                size="small"
+              />
             </Box>
           </Grid>
-          <Grid item xs={12} md={4} sx={{ textAlign: 'right' }}>
+          <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
             <Typography variant="h3" sx={{ fontWeight: 'bold', color: '#0039a6' }}>
               {currentData.calculated.overall.toFixed(2)}%
             </Typography>
@@ -178,6 +220,8 @@ export default function ParticipantBreakdown() {
       <Grid container spacing={4}>
         {/* LEFT COLUMN: Charts */}
         <Grid item xs={12} md={7}>
+          
+          {/* Cluster Summary */}
           <Paper elevation={3} sx={{ p: 3, mb: 4, height: 350 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Competency Clusters</Typography>
             <Box sx={{ height: 280 }}>
@@ -192,6 +236,7 @@ export default function ParticipantBreakdown() {
             </Box>
           </Paper>
 
+          {/* Detailed Breakdowns */}
           <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#0039a6', mb: 1 }}>Cognitive Skills Breakdown</Typography>
             <Box sx={{ height: 300 }}>
@@ -213,6 +258,7 @@ export default function ParticipantBreakdown() {
             </Box>
           </Paper>
 
+          {/* Big 5 Chart */}
           <Paper elevation={3} sx={{ p: 3, mt: 4, height: 400 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Big 5 Personality (OCEAN)</Typography>
             <Box sx={{ height: 320, position: 'relative' }}>
@@ -235,7 +281,7 @@ export default function ParticipantBreakdown() {
         {/* RIGHT COLUMN: Feedback */}
         <Grid item xs={12} md={5}>
           
-          {/* 1. Competency Feedback */}
+          {/* 1. Competency Feedback (Way Moving Forward) */}
           <Paper elevation={3} sx={{ p: 3, mb: 4, bgcolor: '#fff3e0' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <LightbulbIcon sx={{ color: '#f57c00', mr: 1, fontSize: 30 }} />
@@ -263,19 +309,20 @@ export default function ParticipantBreakdown() {
             </Box>
           </Paper>
 
-          {/* 2. Big 5 Feedback (NEW SECTION) */}
+          {/* 2. Big 5 Feedback (Personality Profile) */}
           <Paper elevation={3} sx={{ p: 3, bgcolor: '#f3e5f5' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <PsychologyIcon sx={{ color: '#9c27b0', mr: 1, fontSize: 30 }} />
               <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#7b1fa2' }}>
-                Personality Profile & Readiness
+                Personality Profile
               </Typography>
             </Box>
             <Divider sx={{ mb: 2 }} />
 
             <Box sx={{ maxHeight: 800, overflow: 'auto', pr: 1 }}>
-              {Object.keys(currentData.calculated.big5Feedback).map((trait) => {
+              {big5Keys.map((trait) => {
                 const fb = currentData.calculated.big5Feedback[trait];
+                if (!fb) return null;
                 return (
                   <Card key={trait} sx={{ mb: 2, borderLeft: `5px solid ${BIG5_COLORS[trait]}` }}>
                     <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>

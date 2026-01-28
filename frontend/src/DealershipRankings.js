@@ -10,33 +10,47 @@ export default function DealershipRankings() {
 
   useEffect(() => {
     processData((data) => {
-      // Group by Dealership
+      // 1. FIRST: Filter out Absent participants completely.
+      // This ensures they are NOT included in the count or the average.
+      const presentParticipants = data.filter(p => p['Attendance'] === 'Present');
+
+      // 2. Group by Dealership
       const grouped = {};
-      data.forEach(p => {
-        const dealer = p.dealership;
+      
+      presentParticipants.forEach(p => {
+        const dealer = p['Dealership Name'];
+        
+        // Skip if dealership name is missing/undefined
+        if (!dealer) return;
+
         if (!grouped[dealer]) {
           grouped[dealer] = { 
             name: dealer, 
-            city: p.region, 
+            city: p['Region'], 
             totalScore: 0, 
             count: 0 
           };
         }
+
+        // Add score of this PRESENT person
         grouped[dealer].totalScore += p.calculated.overall;
+        // Increment count of PRESENT people
         grouped[dealer].count += 1;
       });
 
-      // Calculate Averages
+      // 3. Calculate Averages
       const dealerArray = Object.values(grouped).map(d => {
+        // This divides Total Score by ONLY the count of Present people
         const avg = d.totalScore / d.count;
+        
         return {
           ...d,
           average: avg,
-          tier: getTier(avg) // Tier logic remains based on rounding (as per your rule)
+          tier: getTier(avg) 
         };
       });
 
-      // Sort Descending
+      // 4. Sort Descending (Highest Average First)
       dealerArray.sort((a, b) => b.average - a.average);
       setDealerships(dealerArray);
     });
@@ -56,20 +70,20 @@ export default function DealershipRankings() {
                 <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Rank</TableCell>
                 <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Dealership Name</TableCell>
                 <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>City</TableCell>
-                <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Participants</TableCell>
+                <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Participants (Present)</TableCell>
                 <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Avg Score (%)</TableCell>
                 <TableCell sx={{ bgcolor: '#0039a6', color: 'white', fontWeight: 'bold' }}>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {dealerships.map((row, index) => (
-                <TableRow key={row.name} hover>
+                <TableRow key={index} hover>
                   <TableCell>{index + 1}</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>{row.name}</TableCell>
                   <TableCell>{row.city}</TableCell>
                   <TableCell>{row.count}</TableCell>
                   
-                  {/* UPDATED: Shows 2 decimal places */}
+                  {/* Shows 2 decimal places */}
                   <TableCell sx={{ fontWeight: 'bold', color: '#0039a6' }}>
                     {row.average.toFixed(2)}%
                   </TableCell>
