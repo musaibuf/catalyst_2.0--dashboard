@@ -9,6 +9,8 @@ import ParticipantRankings from './ParticipantRankings';
 import DealershipRankings from './DealershipRankings';
 import ParticipantBreakdown from './ParticipantBreakdown';
 import OverallScores from './OverallScores';
+import ParticipantHistoryComparison from './ParticipantHistoryComparison';
+
 
 import {
   Box,
@@ -92,6 +94,7 @@ const menuItems = [
   { id: 5, text: 'Overall Scores', icon: <AssessmentIcon />, sub: 'Competency & Big 5' },
   { id: 6, text: 'Participant Breakdown', icon: <PersonSearchIcon />, sub: 'Individual' },
   { id: 7, text: 'Competency Comparison', icon: <CompareArrowsIcon />, sub: 'Cat vs Cat 2.0' },
+  { id: 8, text: 'History Comparison', icon: <CompareArrowsIcon />, sub: 'Cat 1.0 vs 2.0' },
 ];
 
 // --- DASHBOARD COMPONENT ---
@@ -316,6 +319,7 @@ function Dashboard() {
       case 5: return <OverallScores />;
       case 6: return <ParticipantBreakdown />;
       case 7: return <CompetencyComparison />;
+      case 8: return <ParticipantHistoryComparison />;
       default: return <Typography>Select a page</Typography>;
     }
   };
