@@ -13,9 +13,9 @@ import zScoreFile from '../data/Catalyst 2.0- Z scores - Z-Scores.csv';
 const MAX_SCORE = 4; 
 
 const TIERS = {
-  DIAMOND: { label: 'Diamond', color: '#b9f2ff', min: 81 },
+  DIAMOND: { label: 'Diamond', color: '#b9f2ff', min: 80 },
   GOLD: { label: 'Gold', color: '#ffd700', min: 66 },
-  SILVER: { label: 'Silver', color: '#c0c0c0', min: 51 },
+  SILVER: { label: 'Silver', color: '#c0c0c0', min: 52 },
   BRONZE: { label: 'Bronze', color: '#cd7f32', min: 0 }
 };
 
