@@ -63,14 +63,12 @@ export default function DemographicsComparison() {
   // 3. PROCESS DATA FOR CHARTS
   const chartData = useMemo(() => {
     const filtered = data.filter(row => {
-      // --- NEW: ATTENDANCE CHECK ---
-      // If the participant is NOT Present, exclude them immediately
+      // --- ATTENDANCE CHECK ---
       if (row['Attendance'] !== 'Present') {
         return false;
       }
 
       const age = parseFloat(row['Age']) || 0;
-      // Note: CSV header is lowercase for experience
       const exp = parseFloat(row['years of experience at pak suzuki']) || 0;
       const gender = row['Gender'] ? row['Gender'].trim().toLowerCase() : '';
       const degree = row['Last Degree'] ? row['Last Degree'].trim() : '';
@@ -91,6 +89,10 @@ export default function DemographicsComparison() {
     const eduCounts = {};
     filtered.forEach(d => {
       const deg = d['Last Degree']?.trim() || 'Unknown';
+      
+      // --- EXCLUDE "NOT AVAILABLE" FROM EDUCATION CHARTS ---
+      if (deg.toLowerCase().includes('not available')) return;
+
       eduCounts[deg] = (eduCounts[deg] || 0) + 1;
     });
     
@@ -121,6 +123,10 @@ export default function DemographicsComparison() {
     filtered.forEach(d => {
       const reg = d['Region'] || 'Unknown';
       const deg = d['Last Degree']?.trim() || 'Unknown';
+      
+      // --- EXCLUDE "NOT AVAILABLE" FROM EDUCATION CHARTS ---
+      if (deg.toLowerCase().includes('not available')) return;
+
       allDegrees.add(deg);
       if (!regionEduMap[reg]) regionEduMap[reg] = {};
       regionEduMap[reg][deg] = (regionEduMap[reg][deg] || 0) + 1;

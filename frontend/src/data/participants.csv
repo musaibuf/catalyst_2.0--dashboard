@@ -1,6 +1,6 @@
 S. No,Name,CNIC,Region,Dealership Name,Contact,Last Degree,Current Job Joining Date,Age,Gender,Attendance,years of experience at pak suzuki
 1,Noor Ul Hasnain,42201-7708670-1,Karachi,Carachi Motor Company,3212598500,Bachelors,3/6/2000,48,male,Present,26
-2,Murtaza Ali,42301-9786222-3,Karachi,Carachi Motor Company,3219286994,A Levels,9/20/1993,50,male,Present,32
+2,Murtaza Ali,42301-9786222-3,Karachi,Carachi Motor Company,3219286994,Intermediate,9/20/1993,50,male,Present,32
 3,PERVAIZ IQBAL,36303-6651112-1,Multan,Suzuki Unique Motors,3077355565,Masters,4/18/2017,35,male,Present,9
 4,Kaleem Akram Khokar,37405-0659687-5,Islamabad,Suzuki Rawal Motors,3095550428,Intermediate,7/1/2021,54,male,Present,5
 5,ZEESHAN BASHIR,34603-7422877-1,Lahore,Suzuki Sheikhan Motors,3310300780,Bachelors,1/1/2022,32,male,Present,4
@@ -77,7 +77,7 @@ S. No,Name,CNIC,Region,Dealership Name,Contact,Last Degree,Current Job Joining D
 76,SHAHID AMAN,31304-2077325-3,Multan,Suzuki Rajanpur Motors,3372113300,Masters,12/1/2017,45,male,Present,8
 77,SANAULLAH KHUWAJA,45202-0675690-7,Karachi,Suzuki Mehran Motors,3002009649,Bachelors,5/4/2005,44,male,Present,21
 78,Ishtiaq Ali,34101-2440432-5,Lahore,Suzuki Gujranwalla Motors,3006442363,Graduation,3/9/2005,48,male,Present,21
-79,noman puri,34603-2589377-5,Lahore,Suzuki Sialkot City Motors,3333053434,ACCA,9/1/2022,32,male,Present,3
+79,noman puri,34603-2589377-5,Lahore,Suzuki Sialkot City Motors,3333053434,Graduation,9/1/2022,32,male,Present,3
 80,TANVEER ANWER,42101-1368819-3,Karachi,Mandviwalla Motors Pvt. Ltd.,300254652,Masters,1/1/2003,43,male,Present,23
 81,MUHAMMAD ILYAS,35202-8026883-5,Lahore,Adil Zafar Motors,3213084000,Masters,8/1/2004,39,male,Present,21
 82,Adeel Hussain Adil,33100-7912000-5,Lahore,Suzuki Madina Motors,3216697177,Masters,6/1/2014,46,male,Present,12
@@ -144,4 +144,4 @@ S. No,Name,CNIC,Region,Dealership Name,Contact,Last Degree,Current Job Joining D
 139,WASEEM SHAH,37405-0659586-1,Islamabad,Potohar Motors,3361111527,Graduation,12/1/2025,28,male,Present,0
 140,Nayyar Naz,61101-5307091-0,Islamabad,Suzuki IG Motors,Not Available,Bachelors,Not Available,Not Available,female,Present,Not Available
 141,Haider Farooq,17201-5203075-3,Islamabad,Noshera Motors,Not Available,Bachelors,Not Available,Not Available,male,Present,Not Available
-142,Muhammad Awais,37203-0482204-1,Islamabad,Suzuki Talagang,Not Available,Bachelors (on going),Not Available,Not Available,male,Present,Not Available
+142,Muhammad Awais,37203-0482204-1,Islamabad,Suzuki Talagang,Not Available,Bachelors,Not Available,Not Available,male,Present,Not Available

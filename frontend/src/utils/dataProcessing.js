@@ -7,6 +7,7 @@ import otFile from '../data/OT - Response Sheet - Sheet1.csv';
 import roleplayFile from '../data/Roleplay - Catalyst 2.0 - Sheet1.csv';
 import sjtAFile from '../data/SJT - A Response Sheet - Sheet1.csv';
 import sjtBFile from '../data/SJT - B Response Sheet - Sheet1.csv';
+import zScoreFile from '../data/Catalyst 2.0- Z scores - Z-Scores.csv';
 
 // --- CONFIGURATION ---
 const MAX_SCORE = 4; 
@@ -37,33 +38,33 @@ const COMPETENCIES = [
   { id: 'i_org_skills', label: 'Organization Skills & Team Management', cluster: 'interpersonal' }
 ];
 
-// --- MAPPING (UPDATED TO USE Z-SCORED COLUMNS) ---
+// --- MAPPING: USES RAW HEADERS (1-4 Scale) ---
 const CSV_COLUMN_MAPPING = {
-  // Big 5 (Stays the same)
+  // Big 5
   ocean_o: 'Openness',
   ocean_c: 'Conscientiousness',
   ocean_e: 'Extraversion',
   ocean_a: 'Agreeableness',
   ocean_n: 'Neuroticism',
 
-  // Competencies (Mapped to Z-Scored Headers in OT/Roleplay)
-  c_problem_solving: 'Problem Solving(z scored)',
-  c_asking_questions: 'Asking Questions(z scored)',
-  c_listening: 'Listening Skills(z scored)',
-  c_decision_making: 'Decision Making(z scored)',
-  c_strategic_sales: 'Strategic Sales(z scored)',
-  c_social_media: 'Social Media(z scored)',
+  // Competencies (Raw Headers from OT/Roleplay)
+  c_problem_solving: 'Problem Solving',
+  c_asking_questions: 'Asking the Right Questions',
+  c_listening: 'Listening Skills',
+  c_decision_making: 'Decision Making Skills',
+  c_strategic_sales: 'Strategic Sales & Marketing Approach',
+  c_social_media: 'Social Media',
   
-  sl_leadership: 'Leadership & Conflict(z scored)',
-  sl_resilience: 'Resilience(z scored)',
-  sl_time_mgmt: 'Personal Effectiveness(z scored)',
+  sl_leadership: 'Leadership & Conflict Management',
+  sl_resilience: 'Resilience',
+  sl_time_mgmt: 'Personal Effectiveness & Time Management',
   
-  i_communication: 'Communication(z scored)',
-  i_positive_env: 'Positive Env.(z scored)',
-  i_org_skills: 'Org. Skills(z scored)'
+  i_communication: 'Communication Skills',
+  i_positive_env: 'Building a Positive Environment',
+  i_org_skills: 'Organization Skills & Team Management'
 };
 
-// --- FEEDBACK DATABASES ---
+// --- FULL FEEDBACK DATABASE ---
 const FEEDBACK_DB = {
   c_problem_solving: {
     ex_low: { title: "Foundations of Logic", duration: "2 Days", areas: "Defining Problems, Fact vs Opinion", method: "Drills", rationale: "Struggles to identify core issues." },
@@ -183,7 +184,6 @@ const BIG5_FEEDBACK = {
     low: { band: 'Low (Below 2.8)', interpretation: 'Low Neuroticism = High Emotional Stability', context: 'Calm under pressure, silence, price resistance, and status asymmetry', strength: 'Naturally resilient; unshakeable confidence; thrives under stress', coachPoint: 'Mentor others; ensure overconfidence doesn\'t lead to dismissing customer concerns', readinessFactor: 'Ideally suited for high-stakes premium/HNI selling' }
   }
 };
-
 // --- HELPER FUNCTIONS ---
 
 export const getTier = (percentage) => {
@@ -213,6 +213,19 @@ const parseCSV = (file) => {
   });
 };
 
+// Helper to calculate Mean and Standard Deviation for a set of values
+const calculateStats = (values) => {
+  if (values.length === 0) return { mean: 0, std: 0 };
+  
+  const n = values.length;
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  
+  const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+  const std = Math.sqrt(variance);
+  
+  return { mean, std };
+};
+
 // --- MAIN PROCESSING FUNCTION ---
 export const processData = async (callback) => {
   try {
@@ -223,14 +236,16 @@ export const processData = async (callback) => {
       otData,
       roleplayData,
       sjtAData,
-      sjtBData
+      sjtBData,
+      zScoreData
     ] = await Promise.all([
       parseCSV(participantFile),
       parseCSV(big5File),
       parseCSV(otFile),
       parseCSV(roleplayFile),
       parseCSV(sjtAFile),
-      parseCSV(sjtBFile)
+      parseCSV(sjtBFile),
+      parseCSV(zScoreFile)
     ]);
 
     // 2. Create Lookup Maps for Data Files (Key: Normalized CNIC)
@@ -249,15 +264,39 @@ export const processData = async (callback) => {
     const roleplayMap = createMap(roleplayData, 'Participant CNIC');
     const sjtAMap = createMap(sjtAData, 'CNIC');
     const sjtBMap = createMap(sjtBData, 'CNIC');
+    const zScoreMap = createMap(zScoreData, 'cnic'); 
 
-    // 3. Merge Data
+    // --- 3. CALCULATE GLOBAL STATS (Mean & StdDev) for each Competency ---
+    // We scan ALL OT and Roleplay data to get the global averages (approx 246 data points)
+    const GLOBAL_STATS = {};
+
+    COMPETENCIES.forEach(comp => {
+      const csvHeader = CSV_COLUMN_MAPPING[comp.id];
+      const allScores = [];
+
+      // Collect scores from OT Data
+      otData.forEach(row => {
+        const val = parseFloat(row[csvHeader]);
+        if (!isNaN(val) && val > 0) allScores.push(val);
+      });
+
+      // Collect scores from Roleplay Data
+      roleplayData.forEach(row => {
+        const val = parseFloat(row[csvHeader]);
+        if (!isNaN(val) && val > 0) allScores.push(val);
+      });
+
+      // Calculate Stats (Mean of all items)
+      GLOBAL_STATS[comp.id] = calculateStats(allScores);
+    });
+
+    // 4. Merge Data & Calculate Individual Scores
     const merged = participants.map(p => {
       const targetCnic = normalizeCNIC(p['CNIC'] || p['cnic']);
       
       // Retrieve data rows from maps
       const big5Row = big5Map.get(targetCnic) || {};
-      const otRow = otMap.get(targetCnic) || {};
-      const roleplayRow = roleplayMap.get(targetCnic) || {};
+      const zScoreRow = zScoreMap.get(targetCnic) || {};
       
       // Check SJT A first, then B
       const sjtARow = sjtAMap.get(targetCnic);
@@ -265,8 +304,8 @@ export const processData = async (callback) => {
       const sjtRow = sjtARow || sjtBRow || {};
       const isVariantA = !!sjtARow; 
 
-      // Combine all data sources into one object for easier lookup
-      const allDataSources = { ...big5Row, ...otRow, ...roleplayRow, ...sjtRow };
+      // Get the single Z-Score for this participant
+      const participantZScore = parseFloat(zScoreRow['Z-Scores']) || 0;
 
       // --- CALCULATE SCORES ---
       const finalScores = {};
@@ -275,7 +314,6 @@ export const processData = async (callback) => {
       const feedbackList = [];
 
       // --- DETERMINE SJT CLUSTER SCORES (Q13-Q15) ---
-      // These are added to EVERY competency in their respective cluster
       const q13 = parseFloat(sjtRow['Score of Q13']) || 0;
       const q14 = parseFloat(sjtRow['Score of Q14']) || 0;
       const q15 = parseFloat(sjtRow['Score of Q15']) || 0;
@@ -296,45 +334,50 @@ export const processData = async (callback) => {
 
       // --- CALCULATE COMPETENCY SCORES ---
       COMPETENCIES.forEach((comp, index) => {
-        const csvHeader = CSV_COLUMN_MAPPING[comp.id];
         
-        // 1. OT Score (Using Z-Scored Column)
-        let otScore = parseFloat(otRow[csvHeader]);
+        // 1. Calculate Behavioral Score using Global Stats & Z-Score
+        const stats = GLOBAL_STATS[comp.id] || { mean: 2.5, std: 0 };
+        let behavioralScore = stats.mean + (participantZScore * stats.std);
+        behavioralScore = Math.min(Math.max(behavioralScore, 1), 4);
         
-        // 2. Roleplay Score (Using Z-Scored Column)
-        let rpScore = parseFloat(roleplayRow[csvHeader]);
-        
-        // 3. SJT Specific Question (Q1 - Q12)
-        // Note: Index is 0-based, Questions are 1-based
-        let sjtSpecificScore = parseFloat(sjtRow[`Score Q${index + 1}`]);
+        // 2. SJT Specific Question (Q1 - Q12)
+        let sjtSpecificScore = parseFloat(sjtRow[`Score Q${index + 1}`]) || 0;
 
-        // 4. SJT Cluster Score (The "Averaging Out" Factor)
+        // 3. SJT Cluster Score
         let sjtClusterScore = 0;
         if (comp.cluster === 'cognitive') sjtClusterScore = sjtCognitiveScore;
         else if (comp.cluster === 'selfLeadership') sjtClusterScore = sjtSelfLeadScore;
         else if (comp.cluster === 'interpersonal') sjtClusterScore = sjtInterpersonalScore;
 
-        // --- AVERAGE CALCULATION ---
-        let sum = 0;
-        let count = 0;
+        // --- FINAL AVERAGE CALCULATION (BALANCED 50/50) ---
+        // Formula: (Behavioral + SJT_Combined) / 2
+        // Where SJT_Combined = (Specific + Booster) / 2
+        
+        let sjtCombined = 0;
+        if (sjtSpecificScore > 0 && sjtClusterScore > 0) {
+            sjtCombined = (sjtSpecificScore + sjtClusterScore) / 2;
+        } else if (sjtSpecificScore > 0) {
+            sjtCombined = sjtSpecificScore;
+        } else {
+            sjtCombined = sjtClusterScore;
+        }
 
-        if (!isNaN(otScore)) { sum += otScore; count++; }
-        if (!isNaN(rpScore)) { sum += rpScore; count++; }
-        if (!isNaN(sjtSpecificScore)) { sum += sjtSpecificScore; count++; }
-        if (sjtClusterScore > 0) { sum += sjtClusterScore; count++; }
-
-        // Average Score for this Competency (Scale 1-4)
-        let avgScore = count > 0 ? sum / count : 0;
+        let avgScore = 0;
+        if (behavioralScore > 0 && sjtCombined > 0) {
+            avgScore = (behavioralScore + sjtCombined) / 2;
+        } else if (behavioralScore > 0) {
+            avgScore = behavioralScore;
+        } else {
+            avgScore = sjtCombined;
+        }
         
         // Calculate Percentage (Score / 4 * 100)
         const pct = (avgScore / MAX_SCORE) * 100;
         finalScores[comp.id] = pct;
 
         // Add to Cluster Totals
-        if (count > 0) {
-          clusterTotals[comp.cluster] += pct;
-          clusterCounts[comp.cluster]++;
-        }
+        clusterTotals[comp.cluster] += pct;
+        clusterCounts[comp.cluster]++;
 
         // Generate Feedback
         let suggestionObj = { title: "N/A", duration: "", areas: "", method: "", rationale: "" };
