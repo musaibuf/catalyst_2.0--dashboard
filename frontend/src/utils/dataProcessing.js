@@ -187,10 +187,9 @@ const BIG5_FEEDBACK = {
 // --- HELPER FUNCTIONS ---
 
 export const getTier = (percentage) => {
-  const rounded = Math.round(percentage);
-  if (rounded >= TIERS.DIAMOND.min) return TIERS.DIAMOND;
-  if (rounded >= TIERS.GOLD.min) return TIERS.GOLD;
-  if (rounded >= TIERS.SILVER.min) return TIERS.SILVER;
+  if (percentage >= TIERS.DIAMOND.min) return TIERS.DIAMOND;
+  if (percentage >= TIERS.GOLD.min) return TIERS.GOLD;
+  if (percentage >= TIERS.SILVER.min) return TIERS.SILVER;
   return TIERS.BRONZE;
 };
 
