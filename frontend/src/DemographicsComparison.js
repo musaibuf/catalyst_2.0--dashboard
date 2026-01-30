@@ -32,6 +32,12 @@ ChartJS.register(
 // --- COLORS --- 
 const COLORS = ['#0039a6', '#e31e24', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
+// --- CONSTANTS FOR DEFAULTS ---
+const MIN_AGE = 0;
+const MAX_AGE = 80;
+const MIN_EXP = 0;
+const MAX_EXP = 60;
+
 export default function DemographicsComparison() {
   const [data, setData] = useState([]);
   
@@ -41,8 +47,8 @@ export default function DemographicsComparison() {
     dealership: 'All',
     gender: 'All',
     education: 'All',
-    ageRange: [0, 80], 
-    expRange: [0, 60]   
+    ageRange: [MIN_AGE, MAX_AGE], 
+    expRange: [MIN_EXP, MAX_EXP]   
   });
 
   // 1. LOAD DATA
@@ -68,19 +74,35 @@ export default function DemographicsComparison() {
         return false;
       }
 
-      const age = parseFloat(row['Age']) || 0;
-      const exp = parseFloat(row['years of experience at pak suzuki']) || 0;
+      // --- STRICT PARSING (NaN if missing) ---
+      const rawAge = row['Age'];
+      const age = rawAge ? parseFloat(rawAge) : NaN;
+
+      const rawExp = row['years of experience at pak suzuki'];
+      const exp = rawExp ? parseFloat(rawExp) : NaN;
+
       const gender = row['Gender'] ? row['Gender'].trim().toLowerCase() : '';
       const degree = row['Last Degree'] ? row['Last Degree'].trim() : '';
 
+      // --- DROPDOWN FILTERS ---
       const regionMatch = filters.region === 'All' || row['Region'] === filters.region;
       const dealerMatch = filters.dealership === 'All' || row['Dealership Name'] === filters.dealership;
       const genderMatch = filters.gender === 'All' || gender === filters.gender.toLowerCase();
       const eduMatch = filters.education === 'All' || degree === filters.education;
       
-      // Range Checks
-      const ageMatch = age >= filters.ageRange[0] && age <= filters.ageRange[1];
-      const expMatch = exp >= filters.expRange[0] && exp <= filters.expRange[1];
+      // --- SMART SLIDER LOGIC ---
+      // If slider is at default, include everyone (even if data is missing).
+      // If slider is moved, strictly check range (excluding missing data).
+      
+      const isDefaultAge = filters.ageRange[0] === MIN_AGE && filters.ageRange[1] === MAX_AGE;
+      const ageMatch = isDefaultAge 
+        ? true 
+        : (!isNaN(age) && age >= filters.ageRange[0] && age <= filters.ageRange[1]);
+
+      const isDefaultExp = filters.expRange[0] === MIN_EXP && filters.expRange[1] === MAX_EXP;
+      const expMatch = isDefaultExp
+        ? true
+        : (!isNaN(exp) && exp >= filters.expRange[0] && exp <= filters.expRange[1]);
 
       return regionMatch && dealerMatch && genderMatch && eduMatch && ageMatch && expMatch;
     });
@@ -89,17 +111,18 @@ export default function DemographicsComparison() {
     const eduCounts = {};
     filtered.forEach(d => {
       const deg = d['Last Degree']?.trim() || 'Unknown';
-      
-      // --- EXCLUDE "NOT AVAILABLE" FROM EDUCATION CHARTS ---
+      // Exclude "Not Available"
       if (deg.toLowerCase().includes('not available')) return;
-
       eduCounts[deg] = (eduCounts[deg] || 0) + 1;
     });
     
     // B. Experience Breakdown (Horizontal Bar)
     const expBuckets = { '0-5 Years': 0, '6-10 Years': 0, '11-15 Years': 0, '16-20 Years': 0, '20+ Years': 0 };
     filtered.forEach(d => {
-      const exp = parseFloat(d['years of experience at pak suzuki']);
+      const rawExp = d['years of experience at pak suzuki'];
+      const exp = rawExp ? parseFloat(rawExp) : NaN;
+      
+      // Only plot if valid number
       if (!isNaN(exp)) {
         if (exp <= 5) expBuckets['0-5 Years']++;
         else if (exp <= 10) expBuckets['6-10 Years']++;
@@ -124,7 +147,6 @@ export default function DemographicsComparison() {
       const reg = d['Region'] || 'Unknown';
       const deg = d['Last Degree']?.trim() || 'Unknown';
       
-      // --- EXCLUDE "NOT AVAILABLE" FROM EDUCATION CHARTS ---
       if (deg.toLowerCase().includes('not available')) return;
 
       allDegrees.add(deg);
@@ -136,7 +158,10 @@ export default function DemographicsComparison() {
     // E. Age Distribution (Bar)
     const ageBuckets = { 'Under 30': 0, '30-39': 0, '40-49': 0, '50+': 0 };
     filtered.forEach(d => {
-      const age = parseFloat(d['Age']);
+      const rawAge = d['Age'];
+      const age = rawAge ? parseFloat(rawAge) : NaN;
+      
+      // Only plot if valid number
       if (!isNaN(age)) {
         if (age < 30) ageBuckets['Under 30']++;
         else if (age < 40) ageBuckets['30-39']++;
@@ -343,8 +368,8 @@ export default function DemographicsComparison() {
               value={filters.ageRange}
               onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })}
               valueLabelDisplay="auto"
-              min={0}
-              max={80}
+              min={MIN_AGE}
+              max={MAX_AGE}
               sx={{ 
                 color: '#0039a6', 
                 height: 10, 
@@ -362,8 +387,8 @@ export default function DemographicsComparison() {
               value={filters.expRange}
               onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })}
               valueLabelDisplay="auto"
-              min={0}
-              max={60}
+              min={MIN_EXP}
+              max={MAX_EXP}
               sx={{ 
                 color: '#e31e24', 
                 height: 10, 

@@ -55,6 +55,12 @@ const CLUSTERS = {
 
 const COLORS = ['#0039a6', '#e31e24', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
+// --- CONSTANTS FOR DEFAULTS ---
+const MIN_AGE = 0;
+const MAX_AGE = 80;
+const MIN_EXP = 0;
+const MAX_EXP = 60;
+
 export default function OverallScores() {
   const [rawData, setRawData] = useState([]);
   const [stats, setStats] = useState(null);
@@ -65,8 +71,8 @@ export default function OverallScores() {
     dealership: 'All',
     gender: 'All',
     education: 'All',
-    ageRange: [0, 80],
-    expRange: [0, 60]
+    ageRange: [MIN_AGE, MAX_AGE],
+    expRange: [MIN_EXP, MAX_EXP]
   });
 
   useEffect(() => {
@@ -88,30 +94,43 @@ export default function OverallScores() {
       // 1. EXCLUDE ABSENT PARTICIPANTS AUTOMATICALLY
       if (row['Attendance'] !== 'Present') return false;
 
-      const age = parseFloat(row['Age']) || 0;
-      const exp = parseFloat(row['years of experience at pak suzuki']) || 0;
+      // 2. PARSE DATA
+      const rawAge = row['Age'];
+      const age = rawAge ? parseFloat(rawAge) : NaN;
+
+      const rawExp = row['years of experience at pak suzuki'];
+      const exp = rawExp ? parseFloat(rawExp) : NaN;
+
       const gender = row['Gender'] ? row['Gender'].trim().toLowerCase() : '';
       const degree = row['Last Degree'] ? row['Last Degree'].trim() : '';
 
+      // 3. STANDARD DROPDOWN FILTERS
       const regionMatch = filters.region === 'All' || row['Region'] === filters.region;
       const dealerMatch = filters.dealership === 'All' || row['Dealership Name'] === filters.dealership;
       const genderMatch = filters.gender === 'All' || gender === filters.gender.toLowerCase();
       const eduMatch = filters.education === 'All' || degree === filters.education;
-      const ageMatch = age >= filters.ageRange[0] && age <= filters.ageRange[1];
-      const expMatch = exp >= filters.expRange[0] && exp <= filters.expRange[1];
+      
+      // 4. SMART SLIDER LOGIC
+      // If slider is at default (full range), include NaN (missing data).
+      // If slider is moved (specific range), exclude NaN.
+      
+      const isDefaultAge = filters.ageRange[0] === MIN_AGE && filters.ageRange[1] === MAX_AGE;
+      const ageMatch = isDefaultAge 
+        ? true // Include everyone (even missing age) if filter is untouched
+        : (!isNaN(age) && age >= filters.ageRange[0] && age <= filters.ageRange[1]); // Strict check if filtered
+
+      const isDefaultExp = filters.expRange[0] === MIN_EXP && filters.expRange[1] === MAX_EXP;
+      const expMatch = isDefaultExp
+        ? true // Include everyone (even missing exp) if filter is untouched
+        : (!isNaN(exp) && exp >= filters.expRange[0] && exp <= filters.expRange[1]); // Strict check if filtered
 
       return regionMatch && dealerMatch && genderMatch && eduMatch && ageMatch && expMatch;
     });
 
-    if (filtered.length === 0) {
-      setStats(null);
-      return;
-    }
-
+    // --- CALCULATE STATS ---
     const sums = {};
     const counts = {};
     
-    // Initialize sums/counts for Competencies
     Object.values(CLUSTERS).forEach(group => {
       group.keys.forEach(k => { sums[k.id] = 0; counts[k.id] = 0; });
     });
@@ -126,7 +145,6 @@ export default function OverallScores() {
       // 1. Aggregate Competency Scores
       const scores = p.scores || {};
       Object.keys(sums).forEach(key => {
-        // Skip OCEAN keys here, handle them separately
         if (!key.startsWith('ocean_') && scores[key] !== undefined) {
           sums[key] += scores[key];
           counts[key]++;
@@ -168,12 +186,12 @@ export default function OverallScores() {
       averages[`${clusterKey}_overall`] = clusterItems > 0 ? clusterSum / clusterItems : 0;
     });
 
-    // Calculate Big 5 Averages (From calculated.ocean which is 1-5 scale)
+    // Calculate Big 5 Averages
     const oceanSums = { O:0, C:0, E:0, A:0, N:0 };
     const oceanCounts = { O:0, C:0, E:0, A:0, N:0 };
 
     filtered.forEach(p => {
-        const o = p.calculated.ocean; // { O: 3.5, C: 4.0 ... }
+        const o = p.calculated.ocean; 
         Object.keys(o).forEach(key => {
             if(o[key] > 0) {
                 oceanSums[key] += o[key];
@@ -182,9 +200,8 @@ export default function OverallScores() {
         });
     });
 
-    // Map back to ocean_o, ocean_c keys for the chart
     CLUSTERS.ocean.keys.forEach(k => {
-        const keyChar = k.id.split('_')[1].toUpperCase(); // 'ocean_o' -> 'O'
+        const keyChar = k.id.split('_')[1].toUpperCase(); 
         const rawAvg = oceanCounts[keyChar] > 0 ? oceanSums[keyChar] / oceanCounts[keyChar] : 0;
         averages[k.id] = rawAvg; 
     });
@@ -221,14 +238,9 @@ export default function OverallScores() {
     }]
   });
 
-  // Big 5 Donut (Normalized for visualization)
   const createBig5Donut = () => {
     if (!stats) return { labels: [], datasets: [] };
-    
-    // Get raw averages (1-5 scale)
     const rawValues = CLUSTERS.ocean.keys.map(k => stats.averages[k.id]);
-    
-    // Normalize to percentage of total for the donut slice size
     const totalSum = rawValues.reduce((a, b) => a + b, 0);
     const normalizedData = rawValues.map(val => (totalSum > 0 ? (val / totalSum) * 100 : 0));
 
@@ -338,7 +350,7 @@ export default function OverallScores() {
               value={filters.ageRange} 
               onChange={(e, newValue) => setFilters({ ...filters, ageRange: newValue })} 
               valueLabelDisplay="auto" 
-              min={0} max={80} 
+              min={MIN_AGE} max={MAX_AGE} 
               sx={{ color: '#0039a6', height: 10, '& .MuiSlider-thumb': { width: 24, height: 24 }, mt: 1 }} 
             />
           </Grid>
@@ -348,7 +360,7 @@ export default function OverallScores() {
               value={filters.expRange} 
               onChange={(e, newValue) => setFilters({ ...filters, expRange: newValue })} 
               valueLabelDisplay="auto" 
-              min={0} max={60} 
+              min={MIN_EXP} max={MAX_EXP} 
               sx={{ color: '#e31e24', height: 10, '& .MuiSlider-thumb': { width: 24, height: 24 }, mt: 1 }} 
             />
           </Grid>
