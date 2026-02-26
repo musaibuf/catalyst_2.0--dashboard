@@ -4,14 +4,14 @@ import catalystFile from './data/catalyst_data.csv'; // Legacy Data
 import { processData } from './utils/dataProcessing'; // New Data Logic
 import {
   Box, Container, Typography, Paper, Grid, TextField, InputAdornment,
-  Accordion, AccordionSummary, AccordionDetails, Chip, Divider, LinearProgress
+  Accordion, AccordionSummary, AccordionDetails, Chip, Divider, LinearProgress,
+  FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchIcon from '@mui/icons-material/Search';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import RemoveIcon from '@mui/icons-material/Remove';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CancelIcon from '@mui/icons-material/Cancel';
 
 // --- MAPPING CONFIGURATION ---
@@ -61,6 +61,7 @@ export default function ParticipantHistoryComparison() {
   const [matchedData, setMatchedData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('default'); 
 
   useEffect(() => {
     const loadData = async () => {
@@ -91,51 +92,68 @@ export default function ParticipantHistoryComparison() {
         }
       });
 
+      // Specific CNIC to force absent in OLD Catalyst
+      const forcedOldAbsentCNIC = normalizeCNIC("42301-1054038-5");
+
       newData.forEach(newP => {
-        // Check Attendance
-        const isAbsent = newP['Attendance'] !== 'Present';
         const cnic = normalizeCNIC(newP['CNIC'] || newP['cnic']);
+        const isAbsentNew = newP['Attendance'] !== 'Present';
+        
         const oldP = legacyMap.get(cnic);
 
         if (oldP) {
-          let oldOverall = parseFloat(oldP["Total Avg %age"]) * 100;
-          if (isNaN(oldOverall)) oldOverall = 0;
+          // Check if this is the specific user who was absent in the OLD training
+          const isOldAbsent = (cnic === forcedOldAbsentCNIC);
+
+          let oldOverall = 0;
+          if (!isOldAbsent) {
+            oldOverall = parseFloat(oldP["Total Avg %age"]) * 100;
+            if (isNaN(oldOverall)) oldOverall = 0;
+          }
 
           const matchObj = {
             name: newP['Name'],
             cnic: newP['CNIC'] || newP['cnic'],
             dealership: newP['Dealership Name'],
             region: newP['Region'],
-            attendance: newP['Attendance'], // Store attendance
+            attendance: newP['Attendance'],
+            isOldAbsent: isOldAbsent, // Flag to track old absence
             overall: { 
                 old: oldOverall, 
-                new: isAbsent ? 0 : newP.calculated.overall 
+                new: isAbsentNew ? 0 : newP.calculated.overall 
             },
             clusters: {}
           };
 
           Object.keys(COMPARISON_MAP).forEach(key => {
             const config = COMPARISON_MAP[key];
-            let oldClusterRaw = parseFloat(oldP[config.cat1_col]);
-            let oldClusterPct = (oldClusterRaw / 6) * 100;
-            if (isNaN(oldClusterPct)) oldClusterPct = 0;
+            
+            let oldClusterPct = 0;
+            if (!isOldAbsent) {
+                let oldClusterRaw = parseFloat(oldP[config.cat1_col]);
+                oldClusterPct = (oldClusterRaw / 6) * 100;
+                if (isNaN(oldClusterPct)) oldClusterPct = 0;
+            }
 
             matchObj.clusters[key] = {
               label: config.label,
               old: oldClusterPct,
-              new: isAbsent ? 0 : newP.calculated[config.cat2_key],
+              new: isAbsentNew ? 0 : newP.calculated[config.cat2_key],
               behaviors: []
             };
 
             config.behaviors.forEach(beh => {
-              let oldBehRaw = parseFloat(oldP[beh.cat1]);
-              let oldBehPct = (oldBehRaw / 6) * 100;
-              if (isNaN(oldBehPct)) oldBehPct = 0;
+              let oldBehPct = 0;
+              if (!isOldAbsent) {
+                  let oldBehRaw = parseFloat(oldP[beh.cat1]);
+                  oldBehPct = (oldBehRaw / 6) * 100;
+                  if (isNaN(oldBehPct)) oldBehPct = 0;
+              }
 
               matchObj.clusters[key].behaviors.push({
                 label: beh.label,
                 old: oldBehPct,
-                new: isAbsent ? 0 : newP.scores[beh.cat2]
+                new: isAbsentNew ? 0 : newP.scores[beh.cat2]
               });
             });
           });
@@ -187,18 +205,33 @@ export default function ParticipantHistoryComparison() {
           '& .MuiLinearProgress-bar': { bgcolor: color } 
         }} 
       />
-      {/* UPDATED: 2 Decimal Places */}
       <Typography variant="caption" sx={{ minWidth: 45, fontWeight: 'bold', textAlign: 'right' }}>
         {val.toFixed(2)}%
       </Typography>
     </Box>
   );
 
-  // --- FILTERING ---
-  const filteredList = matchedData.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.cnic.includes(searchTerm)
-  );
+  // --- FILTERING & SORTING LOGIC ---
+  const processedList = matchedData
+    .map(p => ({
+        ...p,
+        delta: p.overall.new - p.overall.old
+    }))
+    .filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.cnic.includes(searchTerm)
+    )
+    .filter(p => {
+        if (filterType === 'increased') return p.delta > 0;
+        if (filterType === 'decreased') return p.delta < 0;
+        return true; // 'default' shows all
+    })
+    .sort((a, b) => {
+        if (filterType === 'decreased') {
+            return a.delta - b.delta;
+        }
+        return b.delta - a.delta;
+    });
 
   if (loading) return <Container><Typography sx={{ mt: 4 }}>Loading Comparison Data...</Typography></Container>;
 
@@ -213,40 +246,58 @@ export default function ParticipantHistoryComparison() {
         </Typography>
       </Box>
 
-      {/* Search Bar */}
-      <Paper sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', borderRadius: 2 }}>
-        <TextField
-          fullWidth
-          variant="outlined"
-          placeholder="Search by Name or CNIC..."
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
-          }}
-        />
+      {/* Search Bar & Filter Dropdown */}
+      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
+                <TextField
+                    fullWidth
+                    variant="outlined"
+                    placeholder="Search by Name or CNIC..."
+                    size="small"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                        startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+                    }}
+                />
+            </Grid>
+            <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                    <InputLabel id="sort-filter-label">Filter</InputLabel>
+                    <Select
+                        labelId="sort-filter-label"
+                        value={filterType}
+                        label="Filter"
+                        onChange={(e) => setFilterType(e.target.value)}
+                    >
+                        <MenuItem value="default">All</MenuItem>
+                        <MenuItem value="increased">Increased</MenuItem>
+                        <MenuItem value="decreased">Decreased</MenuItem>
+                    </Select>
+                </FormControl>
+            </Grid>
+        </Grid>
       </Paper>
 
       {/* List */}
-      {filteredList.map((p, index) => {
-        const isAbsent = p.attendance !== 'Present';
+      {processedList.map((p, index) => {
+        const isAbsentNew = p.attendance !== 'Present';
 
         return (
           <Accordion 
             key={index} 
-            disabled={isAbsent} // DISABLE IF ABSENT
+            disabled={isAbsentNew} 
             sx={{ 
               mb: 2, 
               border: '1px solid #e0e0e0', 
               borderRadius: 2, 
               boxShadow: '0 2px 4px rgba(0,0,0,0.05)', 
               '&:before': { display: 'none' },
-              // UPDATED: No opacity change, looks just like active rows
               bgcolor: '#fff' 
             }}
           >
-            <AccordionSummary expandIcon={!isAbsent && <ExpandMoreIcon />} sx={{ bgcolor: '#fff', borderRadius: 2 }}>
+            <AccordionSummary expandIcon={!isAbsentNew && <ExpandMoreIcon />} sx={{ bgcolor: '#fff', borderRadius: 2 }}>
               <Grid container alignItems="center" spacing={2}>
                 <Grid item xs={12} md={4}>
                   <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#333', lineHeight: 1.2 }}>{p.name}</Typography>
@@ -258,14 +309,26 @@ export default function ParticipantHistoryComparison() {
                 <Grid item xs={12} md={3}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <Typography variant="caption" color="textSecondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>Catalyst</Typography>
-                    <Typography variant="h5" sx={{ color: '#757575', fontWeight: '500' }}>{p.overall.old.toFixed(2)}%</Typography>
+                    {/* CHECK IF ABSENT IN OLD */}
+                    {p.isOldAbsent ? (
+                        <Chip 
+                            icon={<CancelIcon />} 
+                            label="Absent" 
+                            color="error" 
+                            size="small" 
+                            variant="outlined" 
+                            sx={{ fontWeight: 'bold', mt: 0.5 }} 
+                        />
+                    ) : (
+                        <Typography variant="h5" sx={{ color: '#757575', fontWeight: '500' }}>{p.overall.old.toFixed(2)}%</Typography>
+                    )}
                   </Box>
                 </Grid>
                 
                 <Grid item xs={12} md={3}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <Typography variant="caption" color="textSecondary" sx={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>Catalyst 2.0</Typography>
-                    {isAbsent ? (
+                    {isAbsentNew ? (
                         <Chip 
                             icon={<CancelIcon />} 
                             label="Absent" 
@@ -281,13 +344,16 @@ export default function ParticipantHistoryComparison() {
                 </Grid>
 
                 <Grid item xs={12} md={2} sx={{ textAlign: 'right' }}>
-                  {!isAbsent && <DeltaIndicator oldVal={p.overall.old} newVal={p.overall.new} size="medium" />}
+                  {/* Hide Delta if either side is absent */}
+                  {!isAbsentNew && !p.isOldAbsent && (
+                    <DeltaIndicator oldVal={p.overall.old} newVal={p.overall.new} size="medium" />
+                  )}
                 </Grid>
               </Grid>
             </AccordionSummary>
             
-            {/* Only render details if present */}
-            {!isAbsent && (
+            {/* Only render details if present in New */}
+            {!isAbsentNew && (
               <AccordionDetails sx={{ bgcolor: '#fafafa', borderTop: '1px solid #eee', p: 3 }}>
                 <Grid container spacing={4}>
                   {Object.keys(p.clusters).map(clusterKey => {
@@ -299,14 +365,18 @@ export default function ParticipantHistoryComparison() {
                         <Paper elevation={0} sx={{ p: 2, border: `1px solid ${color}40`, height: '100%' }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, borderBottom: `2px solid ${color}`, pb: 1 }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: color }}>{cluster.label}</Typography>
-                            <DeltaIndicator oldVal={cluster.old} newVal={cluster.new} />
+                            {!p.isOldAbsent && <DeltaIndicator oldVal={cluster.old} newVal={cluster.new} />}
                           </Box>
 
                           {/* Cluster Overall Comparison */}
                           <Grid container spacing={1} sx={{ mb: 2 }}>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Catalyst</Typography>
-                              <ScoreBar val={cluster.old} color="#999" />
+                              {p.isOldAbsent ? (
+                                <Typography variant="caption" sx={{ display:'block', color: 'red', fontWeight:'bold' }}>Absent</Typography>
+                              ) : (
+                                <ScoreBar val={cluster.old} color="#999" />
+                              )}
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Catalyst 2.0</Typography>
@@ -326,12 +396,13 @@ export default function ParticipantHistoryComparison() {
                               <Box key={bIdx} sx={{ mb: 2 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                                   <Typography variant="caption" sx={{ fontWeight: 'bold' }}>{beh.label}</Typography>
-                                  {/* UPDATED: 2 Decimal Places for Delta */}
-                                  <Typography variant="caption" sx={{ 
-                                    color: isSame ? '#999' : isUp ? 'green' : 'red' 
-                                  }}>
-                                    {isSame ? 'Same' : `${isUp ? '+' : ''}${diff.toFixed(2)}%`}
-                                  </Typography>
+                                  {!p.isOldAbsent && (
+                                    <Typography variant="caption" sx={{ 
+                                        color: isSame ? '#999' : isUp ? 'green' : 'red' 
+                                    }}>
+                                        {isSame ? 'Same' : `${isUp ? '+' : ''}${diff.toFixed(2)}%`}
+                                    </Typography>
+                                  )}
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 0.5, height: 6 }}>
                                   <Box sx={{ width: `${beh.old}%`, bgcolor: '#ccc', borderRadius: 1 }} />
@@ -351,7 +422,7 @@ export default function ParticipantHistoryComparison() {
         );
       })}
       
-      {filteredList.length === 0 && (
+      {processedList.length === 0 && (
         <Typography align="center" color="textSecondary" sx={{ mt: 4 }}>No matching participants found.</Typography>
       )}
     </Container>
