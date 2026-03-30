@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Papa from 'papaparse';
 import {
   Box, Container, Typography, Paper, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, InputAdornment
+  TableContainer, TableHead, TableRow, TextField, InputAdornment,
+  Select, MenuItem, FormControl,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 
@@ -29,6 +30,10 @@ export default function DealershipSalesComparison() {
   const [salesData,  setSalesData]  = useState([]);
   const [evalData,   setEvalData]   = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // '' = no filter; 'asc' | 'desc'
+  const [salesSort, setSalesSort] = useState('');
+  const [scoreSort, setScoreSort] = useState('');
 
   useEffect(() => {
     Papa.parse(salesFile, {
@@ -116,28 +121,83 @@ export default function DealershipSalesComparison() {
     });
 
     return Object.values(dealerMap)
-      .filter((d) => d.sales2024 > 0 || d.sales2025 > 0 || d.managers.length > 0)
-      .sort((a, b) => {
-        const aTotal = a.sales2025 + a.sales2024;
-        const bTotal = b.sales2025 + b.sales2024;
-        if (b.sales2025 !== a.sales2025) return b.sales2025 - a.sales2025;
-        return bTotal - aTotal;
-      });
+      .filter((d) => d.sales2024 > 0 || d.sales2025 > 0 || d.managers.length > 0);
   }, [salesData, evalData]);
 
-  const filteredData = useMemo(
-    () => mergedData.filter((d) =>
+  const bestScore = (d) => {
+    if (!d.managers.length) return -Infinity;
+    return Math.max(...d.managers.map((m) => parseFloat(m.score) || 0));
+  };
+
+  const salesChange = (d) => d.sales2025 - d.sales2024;
+
+  const filteredData = useMemo(() => {
+    let list = mergedData.filter((d) =>
       d.displayName.toLowerCase().includes(searchTerm.toLowerCase())
-    ),
-    [mergedData, searchTerm]
-  );
+    );
+
+    if (salesSort || scoreSort) {
+      list = [...list].sort((a, b) => {
+        if (salesSort) {
+          const diff = salesChange(a) - salesChange(b);
+          if (diff !== 0) return salesSort === 'asc' ? diff : -diff;
+        }
+        if (scoreSort) {
+          const diff = bestScore(a) - bestScore(b);
+          if (diff !== 0) return scoreSort === 'asc' ? diff : -diff;
+        }
+        return b.sales2025 - a.sales2025;
+      });
+    } else {
+      list = [...list].sort((a, b) => {
+        if (b.sales2025 !== a.sales2025) return b.sales2025 - a.sales2025;
+        return (b.sales2025 + b.sales2024) - (a.sales2025 + a.sales2024);
+      });
+    }
+
+    return list;
+  }, [mergedData, searchTerm, salesSort, scoreSort]);
 
   const BLUE = '#0039a6';
   const RED  = '#e31e24';
+  const FAIL_THRESHOLD = 59.4;
 
-  const hCell = (label, w, bg = BLUE) => (
+  const headerSelectSx = {
+    ml: 0.75,
+    height: 22,
+    fontSize: '0.7rem',
+    fontWeight: 600,
+    color: '#fff',
+    bgcolor: 'rgba(255,255,255,0.18)',
+    borderRadius: '4px',
+    '& .MuiSelect-select': { py: '2px', pl: '6px', pr: '20px !important' },
+    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+    '& .MuiSvgIcon-root': { color: '#fff', fontSize: '0.9rem' },
+    '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' },
+  };
+
+  const SortDropdown = ({ value, onChange }) => (
+    <FormControl size="small" variant="outlined" sx={{ flexShrink: 0 }}>
+      <Select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        displayEmpty
+        sx={headerSelectSx}
+        MenuProps={{ PaperProps: { sx: { fontSize: '0.78rem' } } }}
+      >
+        <MenuItem value=""    sx={{ fontSize: '0.78rem' }}>Sort</MenuItem>
+        <MenuItem value="asc" sx={{ fontSize: '0.78rem' }}>Ascending</MenuItem>
+        <MenuItem value="desc" sx={{ fontSize: '0.78rem' }}>Descending</MenuItem>
+      </Select>
+    </FormControl>
+  );
+
+  const hCell = (label, w, bg = BLUE, extra) => (
     <TableCell sx={{ bgcolor: bg, color: 'white', fontWeight: 'bold', width: w, whiteSpace: 'nowrap' }}>
-      {label}
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        {label}
+        {extra}
+      </Box>
     </TableCell>
   );
 
@@ -169,13 +229,19 @@ export default function DealershipSalesComparison() {
             <TableHead>
               <TableRow>
                 {hCell('#',               '4%')}
-                {hCell('Dealership Name', '26%')}
+                {hCell('Dealership Name', '24%')}
                 {hCell('Region',          '7%')}
-                {hCell('2024 Sales',      '9%')}
-                {hCell('2025 Sales',      '9%')}
-                {hCell('Sales Manager',   '25%', RED)}
+                {hCell('2024 Sales',      '8%')}
+                {hCell(
+                  '2025 Sales', '11%', BLUE,
+                  <SortDropdown value={salesSort} onChange={setSalesSort} />,
+                )}
+                {hCell('Sales Manager',   '21%', RED)}
                 {hCell('CNIC',            '12%', RED)}
-                {hCell('Total Score',     '8%',  RED)}
+                {hCell(
+                  'Total Score', '11%', RED,
+                  <SortDropdown value={scoreSort} onChange={setScoreSort} />,
+                )}
               </TableRow>
             </TableHead>
 
@@ -223,11 +289,22 @@ export default function DealershipSalesComparison() {
 
                   <TableCell>
                     {row.managers.length > 0
-                      ? row.managers.map((m, i) => (
-                          <Box key={i} sx={{ mb: row.managers.length > 1 ? 0.5 : 0, fontWeight: 'bold', color: '#00796b' }}>
-                            {m.score}
-                          </Box>
-                        ))
+                      ? row.managers.map((m, i) => {
+                          const numScore = parseFloat(m.score);
+                          const isFail   = !isNaN(numScore) && numScore < FAIL_THRESHOLD;
+                          return (
+                            <Box
+                              key={i}
+                              sx={{
+                                mb: row.managers.length > 1 ? 0.5 : 0,
+                                fontWeight: 'bold',
+                                color: isFail ? '#c62828' : '#00796b',
+                              }}
+                            >
+                              {m.score}
+                            </Box>
+                          );
+                        })
                       : <Typography variant="body2" color="textSecondary">—</Typography>}
                   </TableCell>
 
